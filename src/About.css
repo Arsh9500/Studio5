@@ -1,0 +1,205 @@
+.about-page {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Navigation Bar */
+.about-nav {
+  background: #1a1a2e;
+  color: #fff;
+  padding: 14px 24px;
+}
+
+.about-nav-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.about-logo {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+}
+
+.about-nav-links {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.about-nav-links a {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.about-nav-links a:hover {
+  color: #fff;
+}
+
+.about-login {
+  background: linear-gradient(135deg, #8e44ad, #9b59b6);
+  color: #fff !important;
+  padding: 8px 18px;
+  border-radius: 20px;
+}
+
+.about-logout {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+/* About Us Title */
+.about-hero {
+  padding: 48px 24px 24px;
+  text-align: center;
+}
+
+.about-hero h1 {
+  font-size: 2rem;
+  color: #1a1a2e;
+}
+
+/* Short Introduction */
+.about-intro {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 24px 32px;
+  text-align: center;
+}
+
+.about-mission {
+  font-size: 1.15rem;
+  color: #333;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.about-intro p {
+  color: #555;
+  line-height: 1.6;
+}
+
+/* Vision Section */
+.about-vision {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  background: #f5f5f8;
+  border-radius: 12px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 24px;
+}
+
+.about-vision h2 {
+  font-size: 1.25rem;
+  color: #1a1a2e;
+  margin-bottom: 12px;
+}
+
+.about-vision p {
+  color: #555;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Features Overview */
+.about-features {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 24px 32px;
+}
+
+.about-features h2 {
+  font-size: 1.25rem;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+}
+
+.about-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.about-features li {
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+  color: #555;
+  line-height: 1.5;
+}
+
+.about-features li:last-child {
+  border-bottom: none;
+}
+
+.about-features strong {
+  color: #1a1a2e;
+}
+
+/* Contact Information */
+.about-contact {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  background: #e8f4fc;
+  border-radius: 12px;
+  margin-bottom: 40px;
+}
+
+.about-contact h2 {
+  font-size: 1.25rem;
+  color: #1a1a2e;
+  margin-bottom: 12px;
+}
+
+.about-contact p {
+  margin: 6px 0;
+  color: #333;
+}
+
+/* Footer */
+.about-footer {
+  background: #1a1a2e;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 24px;
+  margin-top: auto;
+}
+
+.about-footer-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.about-footer p {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.about-footer-links {
+  display: flex;
+  gap: 20px;
+}
+
+.about-footer-links a {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.about-footer-links a:hover {
+  color: #fff;
+}

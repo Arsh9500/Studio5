@@ -1,0 +1,161 @@
+.dest-detail-page {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+/* Navigation Bar */
+.dest-detail-nav {
+  background: #1a1a2e;
+  color: #fff;
+  padding: 14px 24px;
+}
+
+.dest-detail-nav-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dest-nav-logo {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+}
+
+.dest-nav-links {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.dest-nav-links a {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.dest-nav-links a:hover {
+  color: #fff;
+}
+
+/* Destination Image Banner */
+.dest-banner {
+  height: 280px;
+  background-size: cover;
+  background-position: center;
+  width: 100%;
+}
+
+/* Destination Name + Description */
+.dest-info {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 24px 16px;
+}
+
+.dest-info h1 {
+  font-size: 1.8rem;
+  color: #1a1a2e;
+  margin-bottom: 10px;
+}
+
+.dest-desc {
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Weather Info Box */
+.dest-weather {
+  max-width: 900px;
+  margin: 0 auto 16px;
+  padding: 16px 24px;
+  background: #e8f4fc;
+  border-radius: 10px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 16px;
+}
+
+.dest-weather h3 {
+  font-size: 0.95rem;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+}
+
+.dest-weather p {
+  margin: 0;
+  color: #333;
+  font-size: 1rem;
+}
+
+/* Attractions List */
+.dest-attractions {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px 24px;
+}
+
+.dest-attractions h3 {
+  font-size: 1.1rem;
+  color: #1a1a2e;
+  margin-bottom: 12px;
+}
+
+.dest-attractions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dest-attractions li {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+
+.dest-attractions li:last-child {
+  border-bottom: none;
+}
+
+/* Action Buttons */
+.dest-actions {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dest-btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+.dest-btn-primary {
+  background: linear-gradient(135deg, #8e44ad, #9b59b6);
+  color: #fff;
+}
+
+.dest-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.dest-btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.dest-btn-secondary:hover {
+  background: #e0e0e0;
+}
