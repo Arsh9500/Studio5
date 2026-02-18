@@ -14,14 +14,14 @@ function Register() {
   const location = useLocation();
   const from = location.state?.from || "/";
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
     }
-    const result = register(name.trim(), email.trim(), password);
+   const result = await register(name.trim(), email.trim(), password);
     if (result.ok) {
       navigate(from, { replace: true });
     } else {
