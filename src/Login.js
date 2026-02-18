@@ -1,3 +1,6 @@
+/**
+ * Login - Sign in with email/password. Redirects to "from" path after success.
+ */
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";

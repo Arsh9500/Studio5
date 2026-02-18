@@ -1,3 +1,6 @@
+/**
+ * Home - Landing: hero, popular destinations, features. Search/links need login.
+ */
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
@@ -6,18 +9,11 @@ import "./Home.css";
 function Home() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  const handleSearchGo = () => {
-    if (!user) {
-      navigate("/register", { state: { from: "/" } });
-      return;
-    }
-    // TODO: do search when logged in
-  };
+  const onSearchGo = () => { if (!user) navigate("/register", { state: { from: "/" } }); };
 
   return (
     <div className="home-page">
-      {/* Header */}
+      {/* Nav */}
       <header className="header">
         <div className="header-inner">
           <Link to="/" className="logo">LOGO</Link>
@@ -40,11 +36,11 @@ function Home() {
         <h1 className="hero-title">Plan Your Trip Smartly & Easily</h1>
         <div className="hero-search">
           <input type="text" placeholder="Search Destination" />
-          <button type="button" onClick={handleSearchGo}>Go</button>
+          <button type="button" onClick={onSearchGo}>Go</button>
         </div>
       </section>
 
-      {/* Popular Destinations */}
+      {/* Destinations grid */}
       <section className="destinations">
         <h2>Popular Destinations</h2>
         <div className="destination-cards">
@@ -67,7 +63,6 @@ function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
       <section className="features">
         <h2>Why Choose Us</h2>
         <div className="features-grid">
@@ -89,7 +84,6 @@ function Home() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="footer">
         <div className="footer-inner">
           <p>© {new Date().getFullYear()} Trip Planner. All rights reserved.</p>

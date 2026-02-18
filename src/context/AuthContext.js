@@ -1,3 +1,6 @@
+/**
+ * AuthContext - Login state and auth actions. Data in localStorage (no backend).
+ */
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 const AUTH_USER = "trip_user";
@@ -24,9 +27,9 @@ export function AuthProvider({ children }) {
     }
     users.push({ name, email, password });
     localStorage.setItem(AUTH_USERS, JSON.stringify(users));
-    const newUser = { name, email };
-    setUser(newUser);
-    localStorage.setItem(AUTH_USER, JSON.stringify(newUser));
+    const u = { name, email };
+    setUser(u);
+    localStorage.setItem(AUTH_USER, JSON.stringify(u));
     return { ok: true };
   };
 

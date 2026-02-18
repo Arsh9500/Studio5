@@ -1,14 +1,21 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
-import ProtectedRoute from "./ProtectedRoute";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import Home from "./Home";
 import Login from "./Login";
 import Register from "./Register";
-import Destinations from "./Destinations";
-import Planner from "./Planner";
-import DestinationDetail from "./DestinationDetail";
 import About from "./About";
+import Destinations from "./Destinations";
+import DestinationDetail from "./DestinationDetail";
+import Planner from "./Planner";
+
+// Guard: redirect to register if not logged in (keeps "from" path for after login)
+function ProtectedRoute({ children }) {
+  const { user } = useAuth();
+  const location = useLocation();
+  if (!user) return <Navigate to="/register" state={{ from: location.pathname }} replace />;
+  return children;
+}
 
 function App() {
   return (
