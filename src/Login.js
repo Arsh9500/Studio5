@@ -12,10 +12,10 @@ function Login() {
   const location = useLocation();
   const from = location.state?.from || "/";
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    const result = login(email.trim(), password);
+    const result = await login(email.trim(), password);
     if (result.ok) {
       navigate(from, { replace: true });
     } else {

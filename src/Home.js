@@ -92,7 +92,7 @@ function Home() {
       {/* Footer */}
       <footer className="footer">
         <div className="footer-inner">
-          <p>© {new Date().getFullYear()} Trip Planner. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Travel Website. All rights reserved.</p>
           <div className="footer-links">
             <Link to="/">Home</Link>
             <Link to="/about">About</Link>
