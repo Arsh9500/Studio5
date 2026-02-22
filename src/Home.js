@@ -2,13 +2,18 @@
  * Home - Landing: hero, popular destinations, features. Search/links need login.
  */
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import "./Home.css";
 
 function Home() {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const welcomeType = location.state?.welcomeType;
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "Traveler";
+  const avatarLetter = displayName.charAt(0).toUpperCase();
+  const welcomeText = welcomeType === "back" ? "Welcome back" : "Welcome";
   const onSearchGo = () => { if (!user) navigate("/register", { state: { from: "/" } }); };
 
   return (
@@ -16,11 +21,19 @@ function Home() {
       {/* Nav */}
       <header className="header">
         <div className="header-inner">
-          <Link to="/" className="logo">LOGO</Link>
+          {user ? (
+            <div className="welcome-user">
+              <div className="avatar">{avatarLetter}</div>
+              <p className="welcome-text">{welcomeText}, {displayName}</p>
+            </div>
+          ) : (
+            <Link to="/" className="logo">LOGO</Link>
+          )}
           <nav className="nav">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
             <Link to="/planner">Planner</Link>
+            <Link to="/profile">Profile</Link>
             <Link to="/about">About</Link>
             {user ? (
               <button type="button" className="nav-login nav-logout" onClick={() => { logout(); }}>Logout</button>
@@ -86,7 +99,7 @@ function Home() {
 
       <footer className="footer">
         <div className="footer-inner">
-          <p>© {new Date().getFullYear()} Trip Planner. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Travel Website. All rights reserved.</p>
           <div className="footer-links">
             <Link to="/">Home</Link>
             <Link to="/about">About</Link>
