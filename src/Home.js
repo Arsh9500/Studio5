@@ -43,6 +43,7 @@ function Home() {
             <Link to="/">Home</Link>
             <Link to="/planner">Planner</Link>
             {user && <Link to="/profile">Profile</Link>}
+            {user?.role === "admin" && <Link to="/admin">Admin</Link>}
             <Link to="/about">About</Link>
             {user ? (
               <button

@@ -54,6 +54,7 @@ function DestinationDetail() {
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
             <Link to="/planner">Planner</Link>
+            {user?.role === "admin" && <Link to="/admin">Admin</Link>}
             <Link to="/destinations">← Back to Destinations</Link>
           </nav>
         </div>
