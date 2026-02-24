@@ -24,7 +24,6 @@ function Home() {
           <Logo className="logo" />
           <nav className="nav">
             <Link to="/">Home</Link>
-            <Link to="/destinations">Destinations</Link>
             <Link to="/planner">Planner</Link>
             <Link to="/about">About</Link>
             {user ? (
