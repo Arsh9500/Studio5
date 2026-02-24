@@ -1,3 +1,7 @@
+/**
+ * DestinationDetail - Single destination: banner, description, weather, attractions, actions.
+ * Add to Itinerary → planner; Estimate Budget → placeholder.
+ */
 import React from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
