@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
     }
     users.push({ name, email, password });
     localStorage.setItem(AUTH_USERS, JSON.stringify(users));
-    const newUser = { name, email };
+    const newUser = { name, displayName: name, email };
     setUser(newUser);
     localStorage.setItem(AUTH_USER, JSON.stringify(newUser));
     return { ok: true };
@@ -35,10 +35,27 @@ export function AuthProvider({ children }) {
     const users = JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
     const found = users.find((u) => u.email === email && u.password === password);
     if (!found) return { ok: false, error: "Invalid email or password." };
-    const u = { name: found.name, email: found.email };
+    const u = { name: found.name, displayName: found.name, email: found.email };
     setUser(u);
     localStorage.setItem(AUTH_USER, JSON.stringify(u));
     return { ok: true };
+  };
+
+  const updateUserName = (name) => {
+    if (!user) return { ok: false, error: "Not logged in." };
+    const cleanName = (name || "").trim();
+    if (!cleanName) return { ok: false, error: "Name is required." };
+
+    const users = JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
+    const updatedUsers = users.map((u) =>
+      u.email === user.email ? { ...u, name: cleanName } : u
+    );
+    localStorage.setItem(AUTH_USERS, JSON.stringify(updatedUsers));
+
+    const updatedUser = { ...user, name: cleanName, displayName: cleanName };
+    setUser(updatedUser);
+    localStorage.setItem(AUTH_USER, JSON.stringify(updatedUser));
+    return { ok: true, user: updatedUser };
   };
 
   const logout = () => {
@@ -47,7 +64,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout }}>
+    <AuthContext.Provider value={{ user, register, login, logout, updateUserName }}>
       {children}
     </AuthContext.Provider>
   );
