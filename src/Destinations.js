@@ -1,3 +1,6 @@
+/**
+ * Destinations - List of destination cards (from data/destinations). Links to detail page.
+ */
 import React from "react";
 import { Link } from "react-router-dom";
 import { destinations } from "./data/destinations";
