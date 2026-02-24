@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { destinations } from "./data/destinations";
+import Logo from "./components/Logo";
 import "./Destinations.css";
 
 function Destinations() {
@@ -8,7 +9,7 @@ function Destinations() {
     <div className="destinations-page">
       <header className="destinations-nav">
         <div className="destinations-nav-inner">
-          <Link to="/" className="dest-nav-logo">LOGO</Link>
+          <Logo className="dest-nav-logo" />
           <nav className="dest-nav-links">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>

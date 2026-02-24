@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { getDestination } from "./data/destinations";
+import Logo from "./components/Logo";
 import "./DestinationDetail.css";
 
 function DestinationDetail() {
@@ -14,7 +15,7 @@ function DestinationDetail() {
     return (
       <div className="dest-detail-page">
         <header className="dest-detail-nav">
-          <Link to="/">LOGO</Link>
+          <Logo className="dest-nav-logo" />
           <Link to="/destinations">← Destinations</Link>
         </header>
         <p>Destination not found.</p>
@@ -44,7 +45,7 @@ function DestinationDetail() {
       {/* Navigation Bar */}
       <header className="dest-detail-nav">
         <div className="dest-detail-nav-inner">
-          <Link to="/" className="dest-nav-logo">LOGO</Link>
+          <Logo className="dest-nav-logo" />
           <nav className="dest-nav-links">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
