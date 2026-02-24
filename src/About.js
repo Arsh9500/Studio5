@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import Logo from "./components/Logo";
 import "./About.css";
 
 const founders = [
@@ -29,7 +30,7 @@ function About() {
     <div className="about-page">
       <header className="about-nav">
         <div className="about-nav-inner">
-          <Link to="/" className="about-logo">LOGO</Link>
+          <Logo className="about-logo" />
           <nav className="about-nav-links">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>

@@ -4,6 +4,7 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import Logo from "./components/Logo";
 import "./Home.css";
 
 function Home() {
@@ -21,14 +22,7 @@ function Home() {
       {/* Nav */}
       <header className="header">
         <div className="header-inner">
-          {user ? (
-            <div className="welcome-user">
-              <div className="avatar">{avatarLetter}</div>
-              <p className="welcome-text">{welcomeText}, {displayName}</p>
-            </div>
-          ) : (
-            <Link to="/" className="logo">LOGO</Link>
-          )}
+          <Link to="/" className="logo">LOGO</Link>
           <nav className="nav">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
@@ -44,16 +38,16 @@ function Home() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero Section with background image */}
       <section className="hero">
         <h1 className="hero-title">Plan Your Trip Smartly & Easily</h1>
         <div className="hero-search">
           <input type="text" placeholder="Search Destination" />
-          <button type="button" onClick={onSearchGo}>Go</button>
+          <button type="button" onClick={handleSearchGo}>Go</button>
         </div>
       </section>
 
-      {/* Destinations grid */}
+      {/* Popular Destinations */}
       <section className="destinations">
         <h2>Popular Destinations</h2>
         <div className="destination-cards">
@@ -76,6 +70,7 @@ function Home() {
         </div>
       </section>
 
+      {/* Features Section */}
       <section className="features">
         <h2>Why Choose Us</h2>
         <div className="features-grid">
@@ -84,22 +79,36 @@ function Home() {
             <h3>Budget Planning</h3>
             <p>Plan your trip within your budget with smart cost estimates.</p>
           </div>
-          <div className="feature-item">
-            <div className="feature-icon">📋</div>
-            <h3>Itinerary Builder</h3>
-            <p>Create day-by-day plans and keep everything organized.</p>
+
+          {/* Hotel Bookings card */}
+          <div className="home-card home-card-hotel">
+            <div className="home-card-image" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600)" }} />
+            <div className="home-card-body">
+              <h3>Hotel Bookings</h3>
+              <p>Find and book hotels that fit your budget. Compare prices, read reviews, and reserve your stay.</p>
+              <button type="button" className="home-card-cta" onClick={() => user ? navigate("/planner") : navigate("/register", { state: { from: "/" } })}>
+                Find hotels
+              </button>
+            </div>
           </div>
-          <div className="feature-item">
-            <div className="feature-icon">🌤️</div>
-            <h3>Weather Info</h3>
-            <p>Check weather forecasts before you travel.</p>
+
+          {/* Weather Check card */}
+          <div className="home-card home-card-weather">
+            <div className="home-card-image" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1504386106331-3e4e71712b38?w=600)" }} />
+            <div className="home-card-body">
+              <h3>Weather Check</h3>
+              <p>Check forecasts for your destination. Pack right and plan outdoor activities with up-to-date conditions.</p>
+              <button type="button" className="home-card-cta" onClick={() => user ? navigate("/planner") : navigate("/register", { state: { from: "/" } })}>
+                Check weather
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       <footer className="footer">
         <div className="footer-inner">
-          <p>© {new Date().getFullYear()} Travel Website. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Trip Planner. All rights reserved.</p>
           <div className="footer-links">
             <Link to="/">Home</Link>
             <Link to="/about">About</Link>
