@@ -35,7 +35,7 @@ function Register() {
       setError("Passwords do not match.");
       return;
     }
-    const result = register(name.trim(), email.trim(), password);
+    const result = await register(name.trim(), email.trim(), password);
     if (result.ok) {
       navigate(from, { replace: true, state: { welcomeType: "new" } });
     } else {
