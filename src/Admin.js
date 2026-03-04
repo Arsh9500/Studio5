@@ -8,6 +8,7 @@ function Admin() {
   const { user, logout, getAllUsers } = useAuth();
   const navigate = useNavigate();
   const [selected, setSelected] = useState(null);
+  const [users, setUsers] = useState([]);
 
   // Block non-admins
   if (!user || user.role !== "admin") {
@@ -20,7 +21,10 @@ function Admin() {
     );
   }
 
-  const users = getAllUsers();
+  // fetch list on mount
+  React.useEffect(() => {
+    getAllUsers().then(setUsers);
+  }, [getAllUsers]);
 
   return (
     <div className="about-page">

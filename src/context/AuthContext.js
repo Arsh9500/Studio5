@@ -1,94 +1,168 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  getDocs,
+  collection,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
+import { auth, db } from "../firebase";
 
 const AUTH_USER = "trip_user";
-const AUTH_USERS = "trip_users";
+// hard‑coded admin identifier (optional)
 const ADMIN_EMAIL = "admin123@gmail.com";
-const ADMIN_PASSWORD = "Admin@123";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem(AUTH_USER);
-    if (saved) {
-      try {
-        const savedUser = JSON.parse(saved);
-        // If saved user lacks a role, try to recover it from stored users
-        try {
-          const users = JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
-          const match = users.find((u) => u.email === savedUser.email);
-          if (match && match.role && !savedUser.role) {
-            const patched = { ...savedUser, role: match.role };
-            setUser(patched);
-            localStorage.setItem(AUTH_USER, JSON.stringify(patched));
-          } else if (!savedUser.role && savedUser.email === ADMIN_EMAIL) {
-            // fallback: if email matches admin constant, grant admin role
-            const patched = { ...savedUser, role: "admin" };
-            setUser(patched);
-            localStorage.setItem(AUTH_USER, JSON.stringify(patched));
-          } else {
-            setUser(savedUser);
-          }
-        } catch (_) {
-          setUser(savedUser);
-        }
-      } catch (_) {}
-    }
-    // Ensure admin account exists in stored users so admin can login after first load
-    try {
-      const users = JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
-      const hasAdmin = users.some((u) => u.email === ADMIN_EMAIL);
-      if (!hasAdmin) {
-        users.push({ name: "Administrator", email: ADMIN_EMAIL, password: ADMIN_PASSWORD, role: "admin" });
-        localStorage.setItem(AUTH_USERS, JSON.stringify(users));
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setUser(null);
+        localStorage.removeItem(AUTH_USER);
+        return;
       }
-    } catch (e) {
-      // ignore
-    }
+
+      const baseUser = {
+        uid: firebaseUser.uid,
+        name: firebaseUser.displayName || "",
+        displayName: firebaseUser.displayName || "",
+        email: firebaseUser.email || "",
+        role: "user",
+      };
+
+      try {
+        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          const mergedUser = {
+            ...baseUser,
+            name: data.name || baseUser.name,
+            displayName: data.name || baseUser.displayName,
+            role: data.role || "user",
+          };
+          setUser(mergedUser);
+          localStorage.setItem(AUTH_USER, JSON.stringify(mergedUser));
+        } else {
+          setUser(baseUser);
+          localStorage.setItem(AUTH_USER, JSON.stringify(baseUser));
+        }
+      } catch (_) {
+        setUser(baseUser);
+        localStorage.setItem(AUTH_USER, JSON.stringify(baseUser));
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const register = (name, email, password) => {
-    const users = JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
-    if (users.some((u) => u.email === email)) {
-      return { ok: false, error: "Email already registered." };
+  const register = async (name, email, password) => {
+    try {
+      const cleanName = (name || "").trim();
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+
+      if (cleanName) {
+        await updateProfile(credential.user, { displayName: cleanName });
+      }
+
+      const role = email === ADMIN_EMAIL ? "admin" : "user";
+
+      await setDoc(
+        doc(db, "users", credential.user.uid),
+        {
+          uid: credential.user.uid,
+          name: cleanName,
+          email: credential.user.email,
+          role,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const newUser = {
+        uid: credential.user.uid,
+        name: cleanName,
+        displayName: cleanName,
+        email: credential.user.email || email,
+        role,
+      };
+      setUser(newUser);
+      localStorage.setItem(AUTH_USER, JSON.stringify(newUser));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message || "Registration failed." };
     }
-    const role = email === ADMIN_EMAIL && password === ADMIN_PASSWORD ? "admin" : "user";
-    users.push({ name, email, password, role });
-    localStorage.setItem(AUTH_USERS, JSON.stringify(users));
-    const newUser = { name, displayName: name, email, role };
-    setUser(newUser);
-    localStorage.setItem(AUTH_USER, JSON.stringify(newUser));
-    return { ok: true };
   };
 
-  const login = (email, password) => {
-    const users = JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
-    const found = users.find((u) => u.email === email && u.password === password);
-    if (!found) return { ok: false, error: "Invalid email or password." };
-    const role = found.role || (found.email === ADMIN_EMAIL && password === ADMIN_PASSWORD ? "admin" : "user");
-    const u = { name: found.name, displayName: found.name, email: found.email, role };
-    setUser(u);
-    localStorage.setItem(AUTH_USER, JSON.stringify(u));
-    return { ok: true };
+  const login = async (email, password) => {
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = credential.user;
+      let u = {
+        uid: firebaseUser.uid,
+        name: firebaseUser.displayName || "",
+        displayName: firebaseUser.displayName || "",
+        email: firebaseUser.email || email,
+        role: "user",
+      };
+      try {
+        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          u = {
+            ...u,
+            name: data.name || u.name,
+            displayName: data.name || u.displayName,
+            role: data.role || "user",
+          };
+        }
+      } catch (_) {
+        // ignore
+      }
+      setUser(u);
+      localStorage.setItem(AUTH_USER, JSON.stringify(u));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message || "Invalid email or password." };
+    }
   };
 
-  const getAllUsers = () => {
-    return JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
+  const getAllUsers = async () => {
+    try {
+      const snap = await getDocs(collection(db, "users"));
+      return snap.docs.map((d) => d.data());
+    } catch (e) {
+      console.error("getAllUsers failed", e);
+      return [];
+    }
   };
 
-  const updateUserName = (name) => {
+  const updateUserName = async (name) => {
     if (!user) return { ok: false, error: "Not logged in." };
     const cleanName = (name || "").trim();
     if (!cleanName) return { ok: false, error: "Name is required." };
 
-    const users = JSON.parse(localStorage.getItem(AUTH_USERS) || "[]");
-    const updatedUsers = users.map((u) =>
-      u.email === user.email ? { ...u, name: cleanName } : u
-    );
-    localStorage.setItem(AUTH_USERS, JSON.stringify(updatedUsers));
+    try {
+      await updateProfile(auth.currentUser, { displayName: cleanName });
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        name: cleanName,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      return { ok: false, error: error.message || "Could not update name." };
+    }
 
     const updatedUser = { ...user, name: cleanName, displayName: cleanName };
     setUser(updatedUser);
@@ -96,7 +170,8 @@ export function AuthProvider({ children }) {
     return { ok: true, user: updatedUser };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await signOut(auth);
     setUser(null);
     localStorage.removeItem(AUTH_USER);
   };
