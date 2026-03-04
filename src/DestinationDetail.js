@@ -81,7 +81,6 @@ function DestinationDetail() {
           <nav className="dest-nav-links">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
-            <Link to="/planner">Planner</Link>
             <Link to="/destinations">Back to Destinations</Link>
           </nav>
         </div>

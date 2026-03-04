@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Logo from "./components/Logo";
+import { loadUserTrips } from "./utils/trips";
 import "./Home.css";
 
 function Home() {
@@ -10,12 +11,9 @@ function Home() {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState([
-    {
-      role: "bot",
-      text: "Hi, I am your travel assistant. Ask about destinations, budget, or weather.",
-    },
-  ]);
+  const [trips, setTrips] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatBadgeCount, setChatBadgeCount] = useState(0);
 
   const welcomeType = location.state?.welcomeType;
   const displayName =
@@ -28,8 +26,98 @@ function Home() {
       navigate("/register", { state: { from: "/" } });
       return;
     }
-    // TODO: do search when logged in
+    navigate("/coming-soon?feature=Smart Search");
   };
+
+  useEffect(() => {
+    let ignore = false;
+
+    const syncTrips = async () => {
+      const savedTrips = await loadUserTrips(user?.uid);
+      if (!ignore) setTrips(savedTrips);
+    };
+
+    syncTrips();
+    return () => {
+      ignore = true;
+    };
+  }, [user?.uid]);
+
+  const tripAlerts = useMemo(() => {
+    const today = new Date();
+    const todayString = new Date().toISOString().slice(0, 10);
+    const alerts = [];
+
+    trips
+      .filter((trip) => trip.startDate >= todayString)
+      .forEach((trip) => {
+        const budget = Number(trip.budget) || 0;
+        const estimated = Number(trip.estimatedCost) || 0;
+        if (budget > 0 && estimated > budget) {
+          alerts.push(`Budget alert: ${trip.destination} is over budget.`);
+        }
+
+        if (trip.startDate) {
+          const start = new Date(trip.startDate);
+          const diffDays = Math.ceil((start - today) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 0 && diffDays <= 7) {
+            alerts.push(`Reminder: ${trip.destination} starts in ${diffDays} day${diffDays === 1 ? "" : "s"}.`);
+          }
+        }
+      });
+
+    return alerts;
+  }, [trips]);
+
+  const tripSuggestions = useMemo(() => {
+    const todayString = new Date().toISOString().slice(0, 10);
+    const upcomingTrips = trips
+      .filter((trip) => trip.startDate >= todayString)
+      .sort((a, b) => (a.startDate > b.startDate ? 1 : -1))
+      .slice(0, 3);
+
+    return upcomingTrips.map(
+      (trip) => {
+        const budget = Number(trip.budget) || 0;
+        const estimated = Number(trip.estimatedCost) || 0;
+        const budgetTip =
+          budget > 0 && estimated > budget
+            ? "Reduce optional activities to stay inside budget."
+            : "Pre-book transport and top attractions to save time.";
+
+        return `AI Recommendation: For ${trip.destination} (${trip.startDate}${
+          trip.endDate ? ` to ${trip.endDate}` : ""
+        }), ${budgetTip}`;
+      }
+    );
+  }, [trips]);
+
+  const tripBotMessages = useMemo(() => {
+    return [...tripAlerts.map((text) => `Reminder: ${text}`), ...tripSuggestions];
+  }, [tripAlerts, tripSuggestions]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (tripBotMessages.length === 0) {
+      if (!chatOpen) setChatBadgeCount(0);
+      return;
+    }
+
+    setChatMessages((prev) => {
+      const existing = new Set(prev.map((m) => `${m.role}:${m.text}`));
+      const additions = tripBotMessages
+        .filter((text) => !existing.has(`bot:${text}`))
+        .map((text) => ({ role: "bot", text }));
+
+      if (!additions.length) return prev;
+      if (!chatOpen) setChatBadgeCount((count) => count + additions.length);
+      return [...prev, ...additions];
+    });
+  }, [tripBotMessages, chatOpen, user]);
+
+  useEffect(() => {
+    if (chatOpen) setChatBadgeCount(0);
+  }, [chatOpen]);
 
   const getBotReply = (text) => {
     const q = text.toLowerCase();
@@ -48,7 +136,32 @@ function Home() {
       return "Use the Planner page to organize your itinerary and trip plan.";
     }
     if (q.includes("weather")) {
-      return "Destination cards include climate and each destination detail page includes weather info.";
+      return "Weather alerts page is coming soon. You can still see climate and weather in destination details.";
+    }
+    if (q.includes("hotel") || q.includes("booking")) {
+      return "Hotel booking page is coming soon.";
+    }
+    if (
+      q.includes("alert") ||
+      q.includes("reminder") ||
+      q.includes("notification") ||
+      q.includes("trip status")
+    ) {
+      if (!user) return "Please login first so I can show your trip reminders and budget alerts.";
+      if (tripAlerts.length === 0) return "You have no trip alerts right now.";
+      return `Here are your trip alerts: ${tripAlerts.join(" ")}`;
+    }
+    if (
+      q.includes("upcoming") ||
+      q.includes("recommend") ||
+      q.includes("ai") ||
+      q.includes("next trip")
+    ) {
+      if (!user) return "Please login first so I can recommend upcoming trip actions.";
+      if (tripSuggestions.length === 0) {
+        return "You have no upcoming trips yet. Add one in Planner or Dashboard and I will recommend next actions.";
+      }
+      return `Here are AI recommendations for your upcoming trips: ${tripSuggestions.join(" ")}`;
     }
     return "I can help with destinations, budget, weather, wishlist, and trip planning.";
   };
@@ -74,16 +187,19 @@ function Home() {
           {user && (
             <div className="welcome-user">
               <span className="avatar">{avatarLetter}</span>
-              <p className="welcome-text">
+              <button
+                type="button"
+                className="welcome-text welcome-text-link"
+                onClick={() => navigate("/dashboard")}
+              >
                 {welcomeText}, {displayName}
-              </p>
+              </button>
             </div>
           )}
 
           <nav className="nav">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
-            <Link to="/planner">Planner</Link>
             {user && <Link to="/profile">Profile</Link>}
             <Link to="/about">About</Link>
             {user ? (
@@ -204,7 +320,7 @@ function Home() {
                 className="home-card-cta"
                 onClick={() =>
                   user
-                    ? navigate("/planner")
+                    ? navigate("/coming-soon?feature=Hotel Bookings")
                     : navigate("/register", { state: { from: "/" } })
                 }
               >
@@ -233,7 +349,7 @@ function Home() {
                 className="home-card-cta"
                 onClick={() =>
                   user
-                    ? navigate("/planner")
+                    ? navigate("/coming-soon?feature=Weather Alerts")
                     : navigate("/register", { state: { from: "/" } })
                 }
               >
@@ -257,6 +373,9 @@ function Home() {
         onClick={() => setChatOpen((prev) => !prev)}
       >
         {chatOpen ? "Close Chat" : "Chat"}
+        {!chatOpen && chatBadgeCount > 0 && (
+          <span className="chatbot-badge">{chatBadgeCount}</span>
+        )}
       </button>
 
       {chatOpen && (

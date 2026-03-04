@@ -76,10 +76,14 @@
   align-items: center;
 }
 
-.password-header a {
+.forgot-password-btn {
   font-size: 12px;
   text-decoration: none;
   color: #8e44ad;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
 }
 
 .login-btn {
