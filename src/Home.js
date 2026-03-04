@@ -82,10 +82,11 @@ function Home() {
 
           <nav className="nav">
             <Link to="/">Home</Link>
-            <Link to="/destinations">Destinations</Link>
             <Link to="/planner">Planner</Link>
             {user && <Link to="/profile">Profile</Link>}
+            {user?.role === "admin" && <Link to="/admin">Admin</Link>}
             <Link to="/about">About</Link>
+            <Link to="/weather">Weather</Link>
             {user ? (
               <button
                 type="button"
@@ -233,7 +234,7 @@ function Home() {
                 className="home-card-cta"
                 onClick={() =>
                   user
-                    ? navigate("/planner")
+                    ? navigate("/weather")
                     : navigate("/register", { state: { from: "/" } })
                 }
               >

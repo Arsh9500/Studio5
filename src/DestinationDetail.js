@@ -11,8 +11,36 @@ function DestinationDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const dest = getDestination(id);
+
+  const [liveWeather, setLiveWeather] = useState(dest?.weather || "");
   const [wishlist, setWishlist] = useState([]);
 
+  // fetch weather if we have an API key
+  useEffect(() => {
+    const apiKey = process.env.REACT_APP_WEATHER_API_KEY;
+    if (!apiKey || !dest?.name) return;
+
+    const fetchWeather = async () => {
+      try {
+        const resp = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+            dest.name
+          )}&units=metric&appid=${apiKey}`
+        );
+        const data = await resp.json();
+        if (resp.ok && data?.main) {
+          setLiveWeather(
+            `${data.weather[0].description}, ${Math.round(data.main.temp)}°C`
+          );
+        }
+      } catch (err) {
+        console.error("weather fetch failed", err);
+      }
+    };
+    fetchWeather();
+  }, [dest]);
+
+  // synchronize wishlist for current user
   useEffect(() => {
     let ignore = false;
 
@@ -82,7 +110,8 @@ function DestinationDetail() {
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
             <Link to="/planner">Planner</Link>
-            <Link to="/destinations">Back to Destinations</Link>
+            {user?.role === "admin" && <Link to="/admin">Admin</Link>}
+            <Link to="/destinations">← Back to Destinations</Link>
           </nav>
         </div>
       </header>
@@ -99,7 +128,7 @@ function DestinationDetail() {
 
       <section className="dest-weather">
         <h3>Weather</h3>
-        <p>{dest.weather}</p>
+        <p>{liveWeather}</p>
       </section>
 
       <section className="dest-attractions">

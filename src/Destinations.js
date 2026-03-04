@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
 import { destinations } from "./data/destinations";
 import Logo from "./components/Logo";
-import { useAuth } from "./context/AuthContext";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import "./Destinations.css";
 
@@ -52,7 +52,6 @@ function Destinations() {
       return next;
     });
   };
-
   return (
     <div className="destinations-page">
       <header className="destinations-nav">
@@ -62,6 +61,7 @@ function Destinations() {
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
             <Link to="/planner">Planner</Link>
+            {user?.role === "admin" && <Link to="/admin">Admin</Link>}
           </nav>
         </div>
       </header>
