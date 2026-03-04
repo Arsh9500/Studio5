@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Logo from "./components/Logo";
@@ -8,6 +8,14 @@ function Home() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState([
+    {
+      role: "bot",
+      text: "Hi, I am your travel assistant. Ask about destinations, budget, or weather.",
+    },
+  ]);
 
   const welcomeType = location.state?.welcomeType;
   const displayName =
@@ -21,6 +29,39 @@ function Home() {
       return;
     }
     // TODO: do search when logged in
+  };
+
+  const getBotReply = (text) => {
+    const q = text.toLowerCase();
+    if (q.includes("destination") || q.includes("city") || q.includes("country")) {
+      return "Use the Destinations page to search by city or country and filter by budget, climate, and travel type.";
+    }
+    if (q.includes("budget") || q.includes("cost") || q.includes("price")) {
+      return "Open a destination to see estimated costs for flight, hotel, food, and local transport.";
+    }
+    if (q.includes("wishlist") || q.includes("save")) {
+      return user
+        ? "You can save trips to wishlist on Destinations and Detail pages. They are saved to your Firebase profile."
+        : "Please login or register first, then you can save wishlist trips to your account.";
+    }
+    if (q.includes("planner") || q.includes("plan")) {
+      return "Use the Planner page to organize your itinerary and trip plan.";
+    }
+    if (q.includes("weather")) {
+      return "Destination cards include climate and each destination detail page includes weather info.";
+    }
+    return "I can help with destinations, budget, weather, wishlist, and trip planning.";
+  };
+
+  const handleSendMessage = () => {
+    const text = chatInput.trim();
+    if (!text) return;
+
+    const userMessage = { role: "user", text };
+    const botMessage = { role: "bot", text: getBotReply(text) };
+
+    setChatMessages((prev) => [...prev, userMessage, botMessage]);
+    setChatInput("");
   };
 
   return (
@@ -209,6 +250,46 @@ function Home() {
           <p>&copy; {new Date().getFullYear()} Travel Website. All rights reserved.</p>
         </div>
       </footer>
+
+      <button
+        type="button"
+        className="chatbot-toggle"
+        onClick={() => setChatOpen((prev) => !prev)}
+      >
+        {chatOpen ? "Close Chat" : "Chat"}
+      </button>
+
+      {chatOpen && (
+        <div className="chatbot-panel">
+          <div className="chatbot-header">Travel Chatbot</div>
+
+          <div className="chatbot-messages">
+            {chatMessages.map((m, index) => (
+              <div
+                key={`${m.role}-${index}`}
+                className={`chatbot-message ${m.role === "user" ? "chat-user" : "chat-bot"}`}
+              >
+                {m.text}
+              </div>
+            ))}
+          </div>
+
+          <div className="chatbot-input-row">
+            <input
+              type="text"
+              placeholder="Ask something..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSendMessage();
+              }}
+            />
+            <button type="button" onClick={handleSendMessage}>
+              Send
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

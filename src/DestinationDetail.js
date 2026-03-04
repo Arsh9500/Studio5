@@ -1,12 +1,9 @@
-/**
- * DestinationDetail - Single destination: banner, description, weather, attractions, actions.
- * Add to Itinerary → planner; Estimate Budget → placeholder.
- */
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { getDestination } from "./data/destinations";
 import Logo from "./components/Logo";
+import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import "./DestinationDetail.css";
 
 function DestinationDetail() {
@@ -14,16 +11,39 @@ function DestinationDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const dest = getDestination(id);
+  const [wishlist, setWishlist] = useState([]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const syncWishlist = async () => {
+      const list = await loadUserWishlist(user?.uid);
+      if (!ignore) setWishlist(list);
+    };
+
+    syncWishlist();
+    return () => {
+      ignore = true;
+    };
+  }, [user?.uid]);
+
+  const totalDailyCost = useMemo(() => {
+    if (!dest) return 0;
+    return (
+      dest.estimatedCosts.hotelPerNight +
+      dest.estimatedCosts.foodPerDay +
+      dest.estimatedCosts.localTransportPerDay
+    );
+  }, [dest]);
 
   if (!dest) {
     return (
       <div className="dest-detail-page">
         <header className="dest-detail-nav">
           <Logo className="dest-nav-logo" />
-          <Link to="/destinations">← Destinations</Link>
+          <Link to="/destinations">Back to Destinations</Link>
         </header>
         <p>Destination not found.</p>
-        <Link to="/destinations">Back to Destinations</Link>
       </div>
     );
   }
@@ -36,17 +56,25 @@ function DestinationDetail() {
     navigate("/planner", { state: { add: dest.name } });
   };
 
-  const handleEstimateBudget = () => {
-    if (!user) {
+  const inWishlist = wishlist.includes(dest.id);
+
+  const handleWishlist = () => {
+    if (!user?.uid) {
       navigate("/register", { state: { from: `/destinations/${id}` } });
       return;
     }
-    alert(`Budget estimate for ${dest.name} coming soon.`);
+
+    setWishlist((prev) => {
+      const next = prev.includes(dest.id)
+        ? prev.filter((item) => item !== dest.id)
+        : [...prev, dest.id];
+      saveUserWishlist(user.uid, next);
+      return next;
+    });
   };
 
   return (
     <div className="dest-detail-page">
-      {/* Navigation Bar */}
       <header className="dest-detail-nav">
         <div className="dest-detail-nav-inner">
           <Logo className="dest-nav-logo" />
@@ -54,40 +82,51 @@ function DestinationDetail() {
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
             <Link to="/planner">Planner</Link>
-            <Link to="/destinations">← Back to Destinations</Link>
+            <Link to="/destinations">Back to Destinations</Link>
           </nav>
         </div>
       </header>
 
-      {/* Destination Image Banner */}
       <div className="dest-banner" style={{ backgroundImage: `url(${dest.image})` }} />
 
-      {/* Destination Name + Short Description */}
       <section className="dest-info">
         <h1>{dest.name}</h1>
+        <p className="dest-subtitle">
+          {dest.city}, {dest.country} | {dest.climate} climate | {dest.travelType}
+        </p>
         <p className="dest-desc">{dest.description}</p>
       </section>
 
-      {/* Weather Info Box */}
       <section className="dest-weather">
         <h3>Weather</h3>
         <p>{dest.weather}</p>
       </section>
 
-      {/* Attractions List */}
       <section className="dest-attractions">
         <h3>Attractions</h3>
         <ul>
-          {dest.attractions.map((a, i) => (
-            <li key={i}>{a}</li>
+          {dest.attractions.map((a) => (
+            <li key={a}>{a}</li>
           ))}
         </ul>
       </section>
 
-      {/* Action Buttons */}
+      <section className="dest-costs">
+        <h3>Estimated Costs (USD)</h3>
+        <p>Flight: ${dest.estimatedCosts.flight}</p>
+        <p>Hotel per night: ${dest.estimatedCosts.hotelPerNight}</p>
+        <p>Food per day: ${dest.estimatedCosts.foodPerDay}</p>
+        <p>Local transport per day: ${dest.estimatedCosts.localTransportPerDay}</p>
+        <p className="dest-total">Estimated daily total: ${totalDailyCost}</p>
+      </section>
+
       <section className="dest-actions">
-        <button type="button" className="dest-btn dest-btn-primary" onClick={handleAddToItinerary}>Add to Itinerary</button>
-        <button type="button" className="dest-btn dest-btn-secondary" onClick={handleEstimateBudget}>Estimate Budget</button>
+        <button type="button" className="dest-btn dest-btn-primary" onClick={handleAddToItinerary}>
+          Add to Itinerary
+        </button>
+        <button type="button" className="dest-btn dest-btn-secondary" onClick={handleWishlist}>
+          {inWishlist ? "Saved to Wishlist" : "Save to Wishlist"}
+        </button>
       </section>
     </div>
   );
