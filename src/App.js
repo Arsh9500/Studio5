@@ -10,6 +10,7 @@ import DestinationDetail from "./DestinationDetail";
 import Planner from "./Planner";
 import Profile from "./Profile";
 import Admin from "./Admin";
+import Weather from "./Weather";
 
 // Guard: redirect to register if not logged in (keeps "from" path for after login)
 function ProtectedRoute({ children }) {
@@ -31,6 +32,7 @@ function App() {
           <Route path="/destinations" element={<ProtectedRoute><Destinations /></ProtectedRoute>} />
           <Route path="/destinations/:id" element={<ProtectedRoute><DestinationDetail /></ProtectedRoute>} />
           <Route path="/planner" element={<ProtectedRoute><Planner /></ProtectedRoute>} />
+          <Route path="/weather" element={<ProtectedRoute><Weather /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         </Routes>

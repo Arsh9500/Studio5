@@ -14,6 +14,33 @@ function DestinationDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const dest = getDestination(id);
+  const [liveWeather, setLiveWeather] = React.useState(dest?.weather || "");
+
+  React.useEffect(() => {
+    // if you have an OpenWeatherMap API key defined in .env
+    const apiKey = process.env.REACT_APP_WEATHER_API_KEY;
+    if (!apiKey || !dest?.name) return;
+
+    const fetchWeather = async () => {
+      try {
+        const resp = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+            dest.name
+          )}&units=metric&appid=${apiKey}`
+        );
+        const data = await resp.json();
+        if (resp.ok && data?.main) {
+          setLiveWeather(
+            `${data.weather[0].description}, ${Math.round(data.main.temp)}°C`
+          );
+        }
+      } catch (err) {
+        // fail silently and keep static string
+        console.error("weather fetch failed", err);
+      }
+    };
+    fetchWeather();
+  }, [dest]);
 
   if (!dest) {
     return (
@@ -72,7 +99,7 @@ function DestinationDetail() {
       {/* Weather Info Box */}
       <section className="dest-weather">
         <h3>Weather</h3>
-        <p>{dest.weather}</p>
+        <p>{liveWeather}</p>
       </section>
 
       {/* Attractions List */}
