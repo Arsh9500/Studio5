@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { destinations } from "./data/destinations";
 import Logo from "./components/Logo";
 import { useAuth } from "./context/AuthContext";
-import { destinations } from "./data/destinations";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import "./Destinations.css";
 
@@ -237,42 +237,14 @@ function Destinations() {
     });
   }, [liveCities, cityFilter, budgetFilter, climateFilter, travelTypeFilter, sortBy, destinationMetaByCountry]);
 
-  const handleWishlist = useCallback(
-    (city) => {
-      if (!user?.uid) {
-        navigate("/register", { state: { from: "/destinations" } });
-        return;
-      }
-
-      setWishlist((prev) => {
-        const alreadySaved = prev.includes(city.wishlistId) || prev.includes(city.legacyWishlistId);
-        const cleaned = prev.filter((item) => item !== city.wishlistId && item !== city.legacyWishlistId);
-        const next = alreadySaved ? cleaned : [...cleaned, city.wishlistId];
-        saveUserWishlist(user.uid, next);
-        return next;
-      });
-    },
-    [navigate, user]
-  );
-
-  useEffect(() => {
-    const q = searchTerm.trim();
-    if (q.length < 2) {
-      setLiveCities([]);
-      setLiveCitiesLoading(false);
-      return undefined;
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      fetchLiveCities(q, controller.signal);
-    }, 350);
-
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [searchTerm, regionFilter, fetchLiveCities]);
+  const toggleWishlist = (id) => {
+    if (!user?.uid) return;
+    setWishlist((prev) => {
+      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      saveUserWishlist(user.uid, next);
+      return next;
+    });
+  };
 
   return (
     <div className="destinations-page">
@@ -282,6 +254,7 @@ function Destinations() {
           <nav className="dest-nav-links">
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
+            <Link to="/planner">Planner</Link>
           </nav>
         </div>
       </header>

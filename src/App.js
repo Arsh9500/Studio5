@@ -9,8 +9,6 @@ import Destinations from "./Destinations";
 import DestinationDetail from "./DestinationDetail";
 import Planner from "./Planner";
 import Profile from "./Profile";
-import Dashboard from "./Dashboard";
-import ComingSoon from "./ComingSoon";
 
 // Guard: redirect to register if not logged in (keeps "from" path for after login)
 function ProtectedRoute({ children }) {
@@ -32,10 +30,7 @@ function App() {
           <Route path="/destinations" element={<ProtectedRoute><Destinations /></ProtectedRoute>} />
           <Route path="/destinations/:id" element={<ProtectedRoute><DestinationDetail /></ProtectedRoute>} />
           <Route path="/planner" element={<ProtectedRoute><Planner /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/coming-soon" element={<ComingSoon />} />
-          <Route path="*" element={<ComingSoon />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

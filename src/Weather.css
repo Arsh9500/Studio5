@@ -1,0 +1,46 @@
+.weather-page {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 1rem;
+  text-align: center;
+}
+
+.weather-form {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.weather-form input {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+.weather-form button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.weather-error {
+  color: crimson;
+}
+
+.weather-result {
+  margin-top: 1rem;
+  background-color: #f0f8ff;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.weather-result .temp {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.weather-result .desc {
+  text-transform: capitalize;
+  margin: 0.25rem 0;
+}

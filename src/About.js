@@ -45,6 +45,8 @@ function About() {
             <Link to="/">Home</Link>
             <Link to="/destinations">Destinations</Link>
             <Link to="/about">About</Link>
+            {user && <Link to="/profile">Profile</Link>}
+            {user?.role === "admin" && <Link to="/admin">Admin</Link>}
             {user ? (
               <button type="button" className="about-login about-logout" onClick={() => logout()}>
                 Logout

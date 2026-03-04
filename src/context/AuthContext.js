@@ -6,10 +6,20 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  getDocs,
+  collection,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { auth, db } from "../firebase";
 
 const AUTH_USER = "trip_user";
+// hard‑coded admin identifier (optional)
+const ADMIN_EMAIL = "admin123@gmail.com";
 
 const AuthContext = createContext(null);
 
@@ -29,6 +39,7 @@ export function AuthProvider({ children }) {
         name: firebaseUser.displayName || "",
         displayName: firebaseUser.displayName || "",
         email: firebaseUser.email || "",
+        role: "user",
       };
 
       try {
@@ -39,6 +50,7 @@ export function AuthProvider({ children }) {
             ...baseUser,
             name: data.name || baseUser.name,
             displayName: data.name || baseUser.displayName,
+            role: data.role || "user",
           };
           setUser(mergedUser);
           localStorage.setItem(AUTH_USER, JSON.stringify(mergedUser));
@@ -50,7 +62,6 @@ export function AuthProvider({ children }) {
         setUser(baseUser);
         localStorage.setItem(AUTH_USER, JSON.stringify(baseUser));
       }
-
     });
 
     return () => unsubscribe();
@@ -65,12 +76,15 @@ export function AuthProvider({ children }) {
         await updateProfile(credential.user, { displayName: cleanName });
       }
 
+      const role = email === ADMIN_EMAIL ? "admin" : "user";
+
       await setDoc(
         doc(db, "users", credential.user.uid),
         {
           uid: credential.user.uid,
           name: cleanName,
           email: credential.user.email,
+          role,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         },
@@ -82,6 +96,7 @@ export function AuthProvider({ children }) {
         name: cleanName,
         displayName: cleanName,
         email: credential.user.email || email,
+        role,
       };
       setUser(newUser);
       localStorage.setItem(AUTH_USER, JSON.stringify(newUser));
@@ -95,17 +110,42 @@ export function AuthProvider({ children }) {
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = credential.user;
-      const u = {
+      let u = {
         uid: firebaseUser.uid,
         name: firebaseUser.displayName || "",
         displayName: firebaseUser.displayName || "",
         email: firebaseUser.email || email,
+        role: "user",
       };
+      try {
+        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          u = {
+            ...u,
+            name: data.name || u.name,
+            displayName: data.name || u.displayName,
+            role: data.role || "user",
+          };
+        }
+      } catch (_) {
+        // ignore
+      }
       setUser(u);
       localStorage.setItem(AUTH_USER, JSON.stringify(u));
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error.message || "Invalid email or password." };
+    }
+  };
+
+  const getAllUsers = async () => {
+    try {
+      const snap = await getDocs(collection(db, "users"));
+      return snap.docs.map((d) => d.data());
+    } catch (e) {
+      console.error("getAllUsers failed", e);
+      return [];
     }
   };
 
@@ -137,7 +177,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, updateUserName }}>
+    <AuthContext.Provider value={{ user, register, login, logout, updateUserName, getAllUsers }}>
       {children}
     </AuthContext.Provider>
   );
