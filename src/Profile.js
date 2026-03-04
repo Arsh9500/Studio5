@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "./firebase";
 import "./Profile.css";
 
 function Profile() {
@@ -17,7 +19,6 @@ function Profile() {
 
   useEffect(() => {
     if (!user) return;
-    const saved = localStorage.getItem(storageKey);
     const baseProfile = {
       fullName: user.displayName || "",
       email: user.email || "",
@@ -26,13 +27,37 @@ function Profile() {
       travelStyle: "",
     };
 
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setProfile({ ...baseProfile, ...parsed });
-      return;
-    }
+    const loadProfile = async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          const fromDb = {
+            fullName: data.fullName || data.name || baseProfile.fullName,
+            email: data.email || baseProfile.email,
+            phone: data.phone || "",
+            nationality: data.nationality || "",
+            travelStyle: data.travelStyle || "",
+          };
+          setProfile(fromDb);
+          localStorage.setItem(storageKey, JSON.stringify(fromDb));
+          return;
+        }
+      } catch (_) {}
 
-    setProfile(baseProfile);
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setProfile({ ...baseProfile, ...parsed });
+          return;
+        } catch (_) {}
+      }
+
+      setProfile(baseProfile);
+    };
+
+    loadProfile();
   }, [storageKey, user]);
 
   const onChange = (e) => {
@@ -49,9 +74,25 @@ function Profile() {
       }
 
       const profileToSave = { ...profile, fullName: cleanName };
+      if (user?.uid) {
+        await setDoc(
+          doc(db, "users", user.uid),
+          {
+            uid: user.uid,
+            name: cleanName,
+            fullName: cleanName,
+            email: profileToSave.email,
+            phone: profileToSave.phone,
+            nationality: profileToSave.nationality,
+            travelStyle: profileToSave.travelStyle,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
       localStorage.setItem(storageKey, JSON.stringify(profileToSave));
       setProfile(profileToSave);
-      setMessage(`Welcome ${cleanName || "traveler"}, your profile was updated and saved.`);
+      setMessage(`Welcome ${cleanName || "traveler"}, your profile was updated and saved to Firestore.`);
     } catch (error) {
       setMessage("Could not save profile right now. Please try again.");
     }
