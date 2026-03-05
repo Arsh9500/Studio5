@@ -1,0 +1,128 @@
+.planner-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 18px 36px;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.planner-header h1 {
+  margin: 0 0 6px;
+  font-size: 1.9rem;
+}
+
+.planner-header p {
+  margin: 0 0 18px;
+  color: #334155;
+}
+
+.planner-form-card,
+.planner-list-card,
+.planner-notifications-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.planner-form-card h2,
+.planner-list-card h2,
+.planner-notifications-card h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.planner-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.planner-form input,
+.planner-form textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-family: inherit;
+}
+
+.planner-form textarea {
+  grid-column: 1 / -1;
+}
+
+.planner-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+
+.planner-form-actions button,
+.planner-trip-actions button {
+  border: none;
+  background: #1d4ed8;
+  color: #fff;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.planner-cancel-btn {
+  background: #64748b !important;
+}
+
+.planner-trip-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.planner-trip-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.planner-trip-item h3 {
+  margin: 0 0 8px;
+}
+
+.planner-trip-item p {
+  margin: 0 0 6px;
+  color: #334155;
+}
+
+.planner-trip-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.planner-delete-btn {
+  background: #dc2626 !important;
+}
+
+.planner-notification-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.planner-notification-list li {
+  margin-bottom: 8px;
+  color: #334155;
+}
+
+.planner-empty {
+  margin: 0;
+  color: #64748b;
+}
+
+.planner-back-link {
+  display: inline-block;
+  margin-top: 6px;
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 600;
+}

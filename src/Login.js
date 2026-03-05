@@ -44,7 +44,9 @@ function Login() {
           <div className="input-group password-group">
             <div className="password-header">
               <label>Password</label>
-              <a href="#">Forgot Password?</a>
+              <button type="button" className="forgot-password-btn">
+                Forgot Password?
+              </button>
             </div>
             <input type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
