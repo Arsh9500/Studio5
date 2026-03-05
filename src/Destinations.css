@@ -83,6 +83,31 @@
   margin-bottom: 16px;
 }
 
+.popular-section {
+  margin: 2px 0 16px;
+}
+
+.popular-section-head {
+  margin: 0 0 12px;
+}
+
+.popular-section-head h2 {
+  margin: 0;
+  color: var(--ink-900);
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+.popular-section-head p {
+  margin: 6px 0 0;
+  color: var(--ink-700);
+  font-size: 0.96rem;
+}
+
+.popular-card .city-tags {
+  min-height: 42px;
+}
+
 .city-search-wrap {
   position: relative;
 }

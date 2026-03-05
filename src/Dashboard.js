@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { loadUserTrips, saveUserTrips } from "./utils/trips";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
+import { categorizeTrips } from "./utils/tripStatus";
 import "./Dashboard.css";
 
 function toLabel(value) {
@@ -28,6 +29,7 @@ function Dashboard() {
   const [wishlist, setWishlist] = useState([]);
   const [editingTripId, setEditingTripId] = useState("");
   const [status, setStatus] = useState("");
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [form, setForm] = useState({
     destination: "",
     startDate: "",
@@ -56,7 +58,12 @@ function Dashboard() {
     };
   }, [user?.uid]);
 
-  const todayString = new Date().toISOString().slice(0, 10);
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDate(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const todayString = currentDate.toISOString().slice(0, 10);
 
   const itineraryTrips = useMemo(() => {
     return [...trips].sort((a, b) => {
@@ -65,15 +72,15 @@ function Dashboard() {
     });
   }, [trips]);
 
-  const upcomingTrips = useMemo(() => {
-    return itineraryTrips.filter((trip) => trip.startDate >= todayString);
+  const { upcoming: upcomingTrips, ongoing: ongoingTrips, completed: completedTrips } = useMemo(() => {
+    return categorizeTrips(itineraryTrips, todayString);
   }, [itineraryTrips, todayString]);
 
   const notifications = useMemo(() => {
     const today = new Date(todayString);
     const list = [];
 
-    upcomingTrips.forEach((trip) => {
+    [...upcomingTrips, ...ongoingTrips].forEach((trip) => {
       const budget = Number(trip.budget) || 0;
       const estimated = Number(trip.estimatedCost) || 0;
       if (budget > 0 && estimated > budget) {
@@ -97,8 +104,16 @@ function Dashboard() {
       }
     });
 
+    ongoingTrips.forEach((trip) => {
+      list.push({
+        id: `ongoing-${trip.id}`,
+        type: "Ongoing Trip",
+        message: `${trip.destination} is currently ongoing.`,
+      });
+    });
+
     return list;
-  }, [todayString, upcomingTrips]);
+  }, [todayString, ongoingTrips, upcomingTrips]);
 
   const saveTripsToDb = (nextTrips) => {
     setTrips(nextTrips);
@@ -208,6 +223,14 @@ function Dashboard() {
           <p>Upcoming Trips</p>
         </article>
         <article>
+          <h3>{ongoingTrips.length}</h3>
+          <p>Ongoing Trips</p>
+        </article>
+        <article>
+          <h3>{completedTrips.length}</h3>
+          <p>Completed Trips</p>
+        </article>
+        <article>
           <h3>{notifications.length}</h3>
           <p>Notifications</p>
         </article>
@@ -288,6 +311,66 @@ function Dashboard() {
         ) : (
           <div className="dashboard-trip-list">
             {upcomingTrips.map((trip) => (
+              <article key={trip.id} className="dashboard-trip-item">
+                <h3>{trip.destination}</h3>
+                <p>
+                  {trip.startDate}
+                  {trip.endDate ? ` to ${trip.endDate}` : ""}
+                </p>
+                <p>Budget: ${trip.budget || 0}</p>
+                <p>Estimated: ${trip.estimatedCost || 0}</p>
+                {trip.notes && <p>Notes: {trip.notes}</p>}
+                <div className="dashboard-trip-actions">
+                  <button type="button" className="secondary" onClick={() => onEdit(trip)}>
+                    Edit
+                  </button>
+                  <button type="button" className="danger" onClick={() => onDelete(trip.id)}>
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="dashboard-card">
+        <h2>Ongoing Trips ({ongoingTrips.length})</h2>
+        {ongoingTrips.length === 0 ? (
+          <p className="dashboard-empty">No ongoing trips right now.</p>
+        ) : (
+          <div className="dashboard-trip-list">
+            {ongoingTrips.map((trip) => (
+              <article key={trip.id} className="dashboard-trip-item">
+                <h3>{trip.destination}</h3>
+                <p>
+                  {trip.startDate}
+                  {trip.endDate ? ` to ${trip.endDate}` : ""}
+                </p>
+                <p>Budget: ${trip.budget || 0}</p>
+                <p>Estimated: ${trip.estimatedCost || 0}</p>
+                {trip.notes && <p>Notes: {trip.notes}</p>}
+                <div className="dashboard-trip-actions">
+                  <button type="button" className="secondary" onClick={() => onEdit(trip)}>
+                    Edit
+                  </button>
+                  <button type="button" className="danger" onClick={() => onDelete(trip.id)}>
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="dashboard-card">
+        <h2>Completed Trips ({completedTrips.length})</h2>
+        {completedTrips.length === 0 ? (
+          <p className="dashboard-empty">No completed trips yet.</p>
+        ) : (
+          <div className="dashboard-trip-list">
+            {completedTrips.map((trip) => (
               <article key={trip.id} className="dashboard-trip-item">
                 <h3>{trip.destination}</h3>
                 <p>

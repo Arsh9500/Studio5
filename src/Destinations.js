@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { destinations } from "./data/destinations";
 import Logo from "./components/Logo";
 import { useAuth } from "./context/AuthContext";
@@ -83,6 +83,9 @@ function Destinations() {
     () => [FILTER_ALL_OPTION, ...new Set([...destinations.map((item) => item.travelType).filter(Boolean), "Unknown"])],
     []
   );
+  const popularDestinations = useMemo(() => {
+    return destinations.slice(0, 6);
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -200,6 +203,18 @@ function Destinations() {
     }
   }, [regionFilter]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetchLiveCities(searchTerm, controller.signal);
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchTerm, fetchLiveCities]);
+
   const visibleCities = useMemo(() => {
     const normalizedCityFilter = cityFilter.trim().toLowerCase();
     const withMeta = liveCities.map((item) => {
@@ -237,10 +252,16 @@ function Destinations() {
     });
   }, [liveCities, cityFilter, budgetFilter, climateFilter, travelTypeFilter, sortBy, destinationMetaByCountry]);
 
-  const toggleWishlist = (id) => {
+  const handleWishlist = (city) => {
     if (!user?.uid) return;
     setWishlist((prev) => {
-      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      const hasNew = prev.includes(city.wishlistId);
+      const hasLegacy = prev.includes(city.legacyWishlistId);
+      const next =
+        hasNew || hasLegacy
+          ? prev.filter((item) => item !== city.wishlistId && item !== city.legacyWishlistId)
+          : [...prev, city.wishlistId];
+
       saveUserWishlist(user.uid, next);
       return next;
     });
@@ -374,6 +395,42 @@ function Destinations() {
             </div>
           </div>
         </section>
+
+        {searchTerm.trim() === "" && (
+          <section className="popular-section">
+            <div className="popular-section-head">
+              <h2>Popular Recommendations</h2>
+              <p>Start with quick picks before searching by country.</p>
+            </div>
+            <div className="destinations-grid">
+              {popularDestinations.map((item) => (
+                <article key={`popular-${item.id}`} className="dest-card popular-card">
+                  <div className="dest-card-image" style={{ backgroundImage: `url(${item.image})` }} />
+                  <div className="dest-card-body">
+                    <h3>
+                      {item.city}, {item.country}
+                    </h3>
+                    <p className="city-source">
+                      {item.budgetLevel} budget | {item.climate} climate | {item.travelType}
+                    </p>
+                    <p className="city-tags">{item.description}</p>
+                    <div className="live-card-actions">
+                      <Link className="dest-view-link" to={`/destinations/${item.id}`}>
+                        View Details
+                      </Link>
+                      <button type="button" onClick={() => setSearchTerm(item.country)}>
+                        Explore Country
+                      </button>
+                      <button type="button" onClick={() => navigate("/planner", { state: { add: `${item.city}, ${item.country}` } })}>
+                        Plan Itinerary
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         {liveCitiesStatus && <p className="search-status">{liveCitiesStatus}</p>}
 

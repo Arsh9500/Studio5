@@ -3,14 +3,15 @@ import "./Weather.css";
 
 // Replace with your own free API key from https://openweathermap.org (or another provider)
 const API_BASE = "https://api.openweathermap.org/data/2.5/weather";
-// convenience fallback: you can also hard‑code a key here for quick testing. The
-// real key should go in an environment variable (see README or .env example)
-const DEFAULT_API_KEY = "b0de676fca853faaf818b515e2940193"; // <-- demo only
+// Convenience fallback for quick testing.
+const DEFAULT_API_KEY = "b0de676fca853faaf818b515e2940193"; // demo only
 
 function Weather() {
   const [location, setLocation] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+
+  const isEmpty = !result && !error;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,7 +20,7 @@ function Weather() {
 
     let apiKey = process.env.REACT_APP_WEATHER_API_KEY;
     if (!apiKey) {
-      apiKey = DEFAULT_API_KEY; // use the demo key if nothing else provided
+      apiKey = DEFAULT_API_KEY;
       console.warn("REACT_APP_WEATHER_API_KEY not set; falling back to default");
     }
     if (!apiKey) {
@@ -45,6 +46,10 @@ function Weather() {
   return (
     <div className="weather-page">
       <h2>Weather Checker</h2>
+      <p className="weather-subtitle">
+        Search a city to view current temperature, humidity, and wind speed.
+      </p>
+
       <form onSubmit={handleSubmit} className="weather-form">
         <input
           type="text"
@@ -57,11 +62,14 @@ function Weather() {
       </form>
 
       {error && <p className="weather-error">{error}</p>}
+      {isEmpty && <p className="weather-empty">No weather data yet. Enter a location and click Search.</p>}
 
       {result && (
         <div className="weather-result">
-          <h3>{result.name}, {result.sys?.country}</h3>
-          <p className="temp">{Math.round(result.main.temp)}°C</p>
+          <h3>
+            {result.name}, {result.sys?.country}
+          </h3>
+          <p className="temp">{Math.round(result.main.temp)}&deg;C</p>
           <p className="desc">{result.weather[0].description}</p>
           <p>Humidity: {result.main.humidity}%</p>
           <p>Wind: {result.wind.speed} m/s</p>
