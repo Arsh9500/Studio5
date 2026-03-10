@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Logo from "./components/Logo";
+import { buildContactMailto, CONTACT_RECIPIENT, isEmailServiceConfigured, sendContactEmail } from "./utils/email";
 import "./About.css";
 
 const founders = [
@@ -29,11 +30,47 @@ const features = [
 function About() {
   const { user, logout } = useAuth();
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", message: "" });
+  const [contactStatus, setContactStatus] = useState("");
+  const [contactError, setContactError] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
-    alert("Thanks! We'll get back to you soon.");
-    setForm({ firstName: "", lastName: "", email: "", message: "" });
+    setContactStatus("");
+    setContactError("");
+
+    if (!form.firstName.trim() || !form.email.trim() || !form.message.trim()) {
+      setContactError("Please fill first name, email, and message.");
+      return;
+    }
+
+    if (!isEmailServiceConfigured()) {
+      window.location.href = buildContactMailto({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
+        message: form.message.trim(),
+      });
+      setContactStatus(`Your email app was opened to send this message to ${CONTACT_RECIPIENT}.`);
+      setForm({ firstName: "", lastName: "", email: "", message: "" });
+      return;
+    }
+
+    try {
+      setSending(true);
+      await sendContactEmail({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
+        message: form.message.trim(),
+      });
+      setContactStatus(`Message sent successfully to ${CONTACT_RECIPIENT}.`);
+      setForm({ firstName: "", lastName: "", email: "", message: "" });
+    } catch (error) {
+      setContactError(error.message || "Could not send message.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -90,7 +127,7 @@ function About() {
         <div className="get-in-touch-inner">
           <div className="get-in-touch-left">
             <h2>Get in Touch</h2>
-            <p>Have questions about our features or need support? We're here to help you plan your next adventure.</p>
+            <p>Have questions about our features or need support? We&apos;re here to help you plan your next adventure.</p>
             <div className="contact-detail">
               <span className="contact-icon">Email</span>
               <div>
@@ -117,6 +154,8 @@ function About() {
             <div className="get-in-touch-form-card">
               <h3>Send us a Message</h3>
               <form onSubmit={handleContactSubmit}>
+                {contactError && <p className="contact-form-error">{contactError}</p>}
+                {contactStatus && <p className="contact-form-success">{contactStatus}</p>}
                 <div className="form-row">
                   <input
                     type="text"
@@ -143,8 +182,8 @@ function About() {
                   value={form.message}
                   onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
                 />
-                <button type="submit" className="send-message-btn">
-                  Send Message
+                <button type="submit" className="send-message-btn" disabled={sending}>
+                  {sending ? "Sending..." : "Send Message"}
                 </button>
               </form>
             </div>
@@ -162,18 +201,10 @@ function About() {
               Making travel planning simple, accessible, and enjoyable for everyone.
             </p>
             <div className="footer-social">
-              <button type="button" aria-label="Facebook">
-                f
-              </button>
-              <button type="button" aria-label="Twitter">
-                x
-              </button>
-              <button type="button" aria-label="Instagram">
-                ig
-              </button>
-              <button type="button" aria-label="LinkedIn">
-                in
-              </button>
+              <button type="button" aria-label="Facebook">f</button>
+              <button type="button" aria-label="Twitter">x</button>
+              <button type="button" aria-label="Instagram">ig</button>
+              <button type="button" aria-label="LinkedIn">in</button>
             </div>
           </div>
           <div className="footer-columns">

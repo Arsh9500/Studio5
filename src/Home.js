@@ -219,7 +219,9 @@ Local transport: ${base.transport}`;
       return "Please check the Weather section for live weather. I can also share typical weather for popular cities.";
     }
     if (q.includes("hotel") || q.includes("booking")) {
-      return "Hotel booking page is coming soon.";
+      return user
+        ? "Open the Hotels page to search live hotel listings."
+        : "Please login or register first, then open the Hotels page to search live hotel listings.";
     }
     if (
       q.includes("alert") ||
@@ -406,7 +408,7 @@ Local transport: ${base.transport}`;
                 className="home-card-cta"
                 onClick={() =>
                   user
-                    ? navigate("/coming-soon?feature=Hotel Bookings")
+                    ? navigate("/hotels")
                     : navigate("/register", { state: { from: "/" } })
                 }
               >

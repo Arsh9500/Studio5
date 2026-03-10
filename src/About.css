@@ -248,6 +248,20 @@
   min-height: 100px;
 }
 
+.contact-form-error,
+.contact-form-success {
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+
+.contact-form-error {
+  color: #b91c1c;
+}
+
+.contact-form-success {
+  color: #047857;
+}
+
 .send-message-btn {
   width: 100%;
   padding: 12px;
@@ -259,6 +273,11 @@
   font-weight: 600;
   cursor: pointer;
   margin-top: 4px;
+}
+
+.send-message-btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
 }
 
 .send-message-btn:hover {
