@@ -1,8 +1,29 @@
 .weather-page {
   max-width: 600px;
-  margin: 2rem auto;
-  padding: 1rem;
+  margin: 4rem auto;
+  padding: 2rem 1.5rem;
   text-align: center;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: rgba(255,255,255,0.9) url("https://images.unsplash.com/photo-1501973801540-537f08ccae7f?w=1600&auto=format&fit=crop") no-repeat center/cover;
+  background-blend-mode: lighten;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  position: relative;
+  backdrop-filter: blur(6px);
+}
+
+.weather-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.weather-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .weather-form {
@@ -10,6 +31,21 @@
   justify-content: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
+}
+.weather-form input {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+.weather-form input:focus {
+  border-color: #007acc;
+  outline: none;
+}
+.weather-form button {
+  background: #007acc;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
 }
 
 .weather-form input {
@@ -22,23 +58,67 @@
   padding: 0.5rem 1rem;
   font-size: 1rem;
   cursor: pointer;
+  transition: background 0.2s;
+}
+.weather-form button:hover {
+  background: #005fa3;
+}
+
+.weather-samples {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.weather-sample-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.weather-sample {
+  background: #007acc;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.weather-sample:hover {
+  background: #005fa3;
 }
 
 .weather-error {
   color: crimson;
+  margin-top: 1rem;
+  font-weight: 600;
 }
 
 .weather-result {
   margin-top: 1rem;
-  background-color: #f0f8ff;
-  padding: 1rem;
-  border-radius: 8px;
+  background-color: #e8f4ff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  position: relative;
+  text-align: left;
+}
+.weather-result img {
+  width: 80px;
+  height: 80px;
+  float: right;
+}
+.weather-result .temp {
+  font-size: 2.4rem;
+  font-weight: 700;
+}
+.weather-result h3 {
+  margin-top: 0;
+  font-size: 1.5rem;
 }
 
-.weather-result .temp {
-  font-size: 2rem;
-  margin: 0;
-}
 
 .weather-result .desc {
   text-transform: capitalize;

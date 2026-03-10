@@ -12,6 +12,18 @@ function Weather() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
+  // clickable examples to make the page look good
+  const sampleCities = [
+    "Paris",
+    "Tokyo",
+    "New York",
+    "Sydney",
+    "Cairo",
+    "Rio de Janeiro",
+    "Moscow",
+    "Cape Town",
+  ];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -44,7 +56,10 @@ function Weather() {
 
   return (
     <div className="weather-page">
-      <h2>Weather Checker</h2>
+      <div className="weather-header">
+        <img src="https://images.unsplash.com/photo-1501973801540-537f08ccae7f?w=100&auto=format&fit=crop" alt="weather icon" className="weather-header-icon" />
+        <h2>Weather Checker</h2>
+      </div>
       <form onSubmit={handleSubmit} className="weather-form">
         <input
           type="text"
@@ -55,6 +70,27 @@ function Weather() {
         />
         <button type="submit">Search</button>
       </form>
+
+      <div className="weather-samples">
+        <p>Try one of these:</p>
+        <div className="weather-sample-list">
+          {sampleCities.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className="weather-sample"
+              onClick={() => {
+                setLocation(c);
+                // trigger search immediately
+                const ev = { preventDefault: () => {} };
+                handleSubmit(ev);
+              }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {error && <p className="weather-error">{error}</p>}
 

@@ -1,7 +1,9 @@
 .destinations-page {
   font-family: "Segoe UI", system-ui, sans-serif;
   min-height: 100vh;
-  background: #f8fafc;
+  /* subtle background image with overlay */
+  background: linear-gradient(rgba(248,250,252,0.9), rgba(248,250,252,0.9)),
+    url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&auto=format&fit=crop") no-repeat center/cover;
 }
 
 .destinations-nav {
@@ -37,12 +39,16 @@
   max-width: 1100px;
   margin: 0 auto;
   padding: 32px 24px 48px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15,23,42,0.1);
 }
 
 .destinations-list h1 {
-  font-size: 1.6rem;
+  font-size: 2rem;
   color: #1a1a2e;
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .dest-filters {
@@ -82,17 +88,29 @@
   overflow: hidden;
   background: #fff;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .dest-card-link {
   display: block;
   text-decoration: none;
 }
+.dest-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.15);
+}
 
 .dest-card-image {
   height: 160px;
   background-size: cover;
   background-position: center;
+}
+.dest-card-image::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, rgba(0,0,0,0.35), transparent);
 }
 
 .dest-card-body {
@@ -114,6 +132,14 @@
   display: flex;
   gap: 8px;
   align-items: center;
+}
+.dest-card-actions a,
+.dest-card-actions button {
+  transition: background 0.2s;
+}
+.dest-card-actions button:hover,
+.dest-card-actions a:hover {
+  opacity: 0.9;
 }
 
 .dest-view-link,
