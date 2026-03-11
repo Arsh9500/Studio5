@@ -29,7 +29,7 @@
 .weather-form {
   display: flex;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   margin-bottom: 1rem;
 }
 .weather-form input {
@@ -50,8 +50,17 @@
 
 .weather-form input {
   flex: 1;
-  padding: 0.5rem;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
   font-size: 1rem;
+  border: 1px solid #bfd3f7;
+  border-radius: 10px;
+  outline: none;
+}
+
+.weather-form input:focus {
+  border-color: #6c9df0;
+  box-shadow: 0 0 0 3px rgba(57, 106, 204, 0.14);
 }
 
 .weather-form button {
@@ -122,5 +131,17 @@
 
 .weather-result .desc {
   text-transform: capitalize;
-  margin: 0.25rem 0;
+  margin: 0.25rem 0 0.7rem;
+  color: #334155;
+}
+
+@media (max-width: 640px) {
+  .weather-page {
+    margin: 1rem;
+    padding: 1rem;
+  }
+
+  .weather-form {
+    flex-direction: column;
+  }
 }

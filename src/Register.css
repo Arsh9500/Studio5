@@ -46,6 +46,12 @@
   margin-bottom: 12px;
 }
 
+.form-info {
+  color: #2563eb;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
 .input-hint {
   display: block;
   font-size: 11px;
@@ -98,6 +104,45 @@
 
 .register-btn:hover {
   opacity: 0.9;
+}
+
+.auth-divider {
+  margin: 18px 0 14px;
+  position: relative;
+  color: #777;
+  font-size: 13px;
+}
+
+.auth-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: #e6e6e6;
+}
+
+.auth-divider span {
+  position: relative;
+  padding: 0 10px;
+  background: #fff;
+}
+
+.google-auth-btn {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d0d7e2;
+  border-radius: 25px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.google-auth-btn:hover {
+  background: #f8fafc;
 }
 
 .login-text {
