@@ -1,0 +1,198 @@
+.dashboard-page {
+  min-height: 100vh;
+  background: linear-gradient(150deg, #f7fbff 0%, #eff6ff 52%, #e8fbf7 100%);
+  padding: 28px 18px 42px;
+  color: #102047;
+}
+
+.dashboard-header {
+  max-width: 1200px;
+  margin: 0 auto 16px;
+}
+
+.dashboard-header h1 {
+  margin: 0 0 6px;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+}
+
+.dashboard-header p {
+  margin: 0 0 12px;
+  color: #355089;
+}
+
+.dashboard-nav {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.dashboard-nav a {
+  text-decoration: none;
+  color: #0f3f9f;
+  font-weight: 700;
+}
+
+.dashboard-metrics {
+  max-width: 1200px;
+  margin: 0 auto 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.dashboard-metrics article {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(32, 77, 150, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+
+.dashboard-metrics h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.dashboard-metrics p {
+  margin: 4px 0 0;
+  color: #355089;
+}
+
+.dashboard-grid {
+  max-width: 1200px;
+  margin: 0 auto 16px;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 14px;
+}
+
+.dashboard-card {
+  max-width: 1200px;
+  margin: 0 auto 16px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(29, 74, 152, 0.2);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.dashboard-card h2 {
+  margin: 0 0 10px;
+}
+
+.dashboard-form {
+  display: grid;
+  gap: 9px;
+}
+
+.dashboard-form input,
+.dashboard-form textarea {
+  border: 1px solid #b6c8e9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.dashboard-form-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboard-form-actions button,
+.dashboard-trip-actions button,
+.dashboard-wishlist button {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(120deg, #1b67ff, #00b2a6);
+}
+
+.dashboard-form-actions button.secondary,
+.dashboard-trip-actions button.secondary,
+.dashboard-wishlist button.secondary {
+  background: linear-gradient(120deg, #2d3f72, #4f6cac);
+}
+
+.dashboard-form-actions button.danger,
+.dashboard-trip-actions button.danger,
+.dashboard-wishlist button.danger {
+  background: linear-gradient(120deg, #c03434, #e75a5a);
+}
+
+.dashboard-status {
+  margin: 10px 0 0;
+  color: #2154c7;
+  font-weight: 700;
+}
+
+.dashboard-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #213b6f;
+}
+
+.dashboard-empty {
+  margin: 0;
+  color: #4b6293;
+}
+
+.dashboard-trip-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.dashboard-trip-item {
+  border: 1px solid rgba(34, 76, 140, 0.16);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.dashboard-trip-item h3 {
+  margin: 0 0 6px;
+}
+
+.dashboard-trip-item p {
+  margin: 0 0 6px;
+}
+
+.dashboard-trip-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboard-wishlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-wishlist li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(34, 76, 140, 0.16);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.dashboard-wishlist li div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -112,6 +112,20 @@ export const destinations = [
     attractions: ["Sydney Opera House", "Bondi Beach", "Harbour Bridge"],
     estimatedCosts: { flight: 1200, hotelPerNight: 130, foodPerDay: 50, localTransportPerDay: 18 },
   },
+  {
+    id: "goa",
+    name: "Goa",
+    city: "Panaji",
+    country: "India",
+    image: "https://picsum.photos/1200/400?random=9",
+    description: "Coastal destination known for beaches, nightlife, and Portuguese heritage.",
+    weather: "Warm, 30 C",
+    climate: "Tropical",
+    travelType: "Beach",
+    budgetLevel: "Medium",
+    attractions: ["Baga Beach", "Fort Aguada", "Basilica of Bom Jesus"],
+    estimatedCosts: { flight: 650, hotelPerNight: 60, foodPerDay: 22, localTransportPerDay: 10 },
+  },
 ];
 
 export function getDestination(id) {
