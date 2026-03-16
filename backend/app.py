@@ -1,12 +1,17 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from chat_workflow import classify_search_type, handle_chat_message
+from gemini_service import generate_travel_reply
+from places_service import search_places
 
 
 app = Flask(__name__)
+CORS(app)
 
 
 # Destination dataset for the travel recommendation endpoint.
@@ -289,6 +294,59 @@ def recommend_hotels():
             "message": "Hotels ranked from best to least suitable.",
         }
     )
+
+
+@app.post("/chat/gemini")
+def chat_with_gemini():
+    payload = request.get_json(silent=True) or {}
+    message = (payload.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    try:
+        reply = generate_travel_reply(message, payload.get("context") or {})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 503
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    return jsonify({"reply": reply, "mode": "gemini", "places": [], "searchType": "general"})
+
+
+@app.post("/chat/places")
+def chat_with_places():
+    payload = request.get_json(silent=True) or {}
+    message = (payload.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    search_type = payload.get("searchType") or classify_search_type(message)
+
+    try:
+        result = search_places(message, search_type, context=payload.get("context") or {})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 503
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    return jsonify({"mode": "places", **result})
+
+
+@app.post("/chat/message")
+def chat_message():
+    payload = request.get_json(silent=True) or {}
+    message = (payload.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    try:
+        result = handle_chat_message(message, payload.get("context") or {})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 503
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    return jsonify(result)
 
 
 if __name__ == "__main__":

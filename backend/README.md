@@ -1,6 +1,10 @@
 # Travel Planner ML Backend
 
-Simple Flask backend with machine learning recommendation endpoints for destinations and hotels.
+Simple Flask backend with:
+
+- machine learning recommendation endpoints for destinations and hotels
+- Gemini-powered travel chat replies
+- Google Places powered live place and hotel search
 
 ## Setup
 
@@ -11,6 +15,16 @@ python app.py
 ```
 
 The API runs at `http://127.0.0.1:5000`.
+
+## Environment variables
+
+Set these on the backend so secrets stay out of the frontend:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.0-flash
+GOOGLE_PLACES_API_KEY=your_google_places_key
+```
 
 ## Endpoints
 
@@ -103,3 +117,32 @@ the chatbot can convert it into:
 ```
 
 Then call `POST /recommend-hotels` and show the ranked results.
+
+### `POST /chat/message`
+
+Main chatbot workflow route.
+
+- Uses Google Places for live place, hotel, attraction, and nearby searches
+- Uses Gemini for natural-language travel guidance and advice
+
+Example request:
+
+```json
+{
+  "message": "Find hotels in Queenstown with ratings",
+  "context": {
+    "latestBooking": {
+      "hotelName": "Lake View Hotel",
+      "destination": "Queenstown, New Zealand"
+    }
+  }
+}
+```
+
+### `POST /chat/gemini`
+
+Direct Gemini route for travel-assistant style replies.
+
+### `POST /chat/places`
+
+Direct Google Places route for live place lookup.

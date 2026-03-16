@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { destinations } from "./data/destinations";
 import Logo from "./components/Logo";
 import { useAuth } from "./context/AuthContext";
+import { saveUserHotelBooking } from "./utils/bookings";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import "./Destinations.css";
 
@@ -13,6 +15,8 @@ const FILTER_ALL_OPTION = "All";
 const DEFAULT_HOTEL_TYPES = ["Hotel", "Guest House", "Hostel", "Apartment", "Motel"];
 const DEFAULT_STAR_OPTIONS = ["Unrated", "3 Star", "4 Star", "5 Star"];
 const DEFAULT_AMENITIES = ["Wi-Fi", "Parking", "Pool", "Breakfast", "Accessible", "Air Conditioning", "General"];
+const PAYMENT_METHODS = ["Credit Card", "Debit Card", "Pay at Hotel"];
+const BOOKING_CHATBOT_NOTICE_KEY = "hotel_booking_chatbot_notice";
 const COUNTRY_CITY_SEEDS = {
   australia: ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Gold Coast"],
   japan: ["Tokyo", "Osaka", "Kyoto", "Sapporo", "Fukuoka"],
@@ -59,6 +63,97 @@ function getHotelAmenity(tags) {
   if (tags["wheelchair"] === "yes") return "Accessible";
   if (tags["air_conditioning"] === "yes") return "Air Conditioning";
   return "General";
+}
+
+function getNightlyRate(hotel) {
+  const starValue = Number.parseInt(String(hotel.stars || "").replace(/[^0-9]/g, ""), 10) || 3;
+  const amenityBoost = {
+    "Pool": 40,
+    "Breakfast": 18,
+    "Wi-Fi": 10,
+    "Parking": 8,
+    "Accessible": 12,
+    "Air Conditioning": 15,
+    "General": 0,
+  };
+  const typeBoost = {
+    "Hotel": 30,
+    "Guest House": 5,
+    "Hostel": -20,
+    "Apartment": 18,
+    "Motel": -8,
+  };
+
+  const baseRate = 65 + starValue * 28;
+  return Math.max(55, baseRate + (amenityBoost[hotel.amenity] || 0) + (typeBoost[hotel.type] || 0));
+}
+
+function getStayNights(checkInDate, checkOutDate) {
+  if (!checkInDate || !checkOutDate) return 0;
+
+  const start = new Date(checkInDate);
+  const end = new Date(checkOutDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+
+  const diff = end.getTime() - start.getTime();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+function formatCurrency(amount) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(Number(amount) || 0);
+}
+
+function buildBookingReference() {
+  return `HB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+function normalizeCardNumber(value) {
+  return value.replace(/\D/g, "").slice(0, 19);
+}
+
+function formatCardNumber(value) {
+  return normalizeCardNumber(value).replace(/(.{4})/g, "$1 ").trim();
+}
+
+function normalizeExpiry(value) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+function isValidExpiry(value) {
+  const match = value.match(/^(\d{2})\/(\d{2}|\d{4})$/);
+  if (!match) return false;
+
+  const month = Number(match[1]);
+  const year = Number(match[2].length === 2 ? `20${match[2]}` : match[2]);
+  if (month < 1 || month > 12) return false;
+
+  const expiry = new Date(year, month, 0, 23, 59, 59, 999);
+  return expiry.getTime() >= Date.now();
+}
+
+function buildReceiptText(booking) {
+  if (!booking) return "";
+
+  return [
+    "Hotel Booking Receipt",
+    `Booking ID: ${booking.bookingId}`,
+    `Booking Reference: ${booking.bookingReference}`,
+    `Hotel Name: ${booking.hotelName}`,
+    `Destination: ${booking.destination}`,
+    `Check-in Date: ${booking.checkInDate}`,
+    `Check-out Date: ${booking.checkOutDate}`,
+    `Guests: ${booking.guests}`,
+    `Amount Paid: ${formatCurrency(booking.totalPrice)}`,
+    `Payment Method: ${booking.paymentMethod}`,
+    `Payment Status: ${booking.paymentStatus}`,
+    `Booking Status: ${booking.bookingStatus}`,
+  ].join("\n");
 }
 
 function buildFallbackHotelsFromCities(countryName, cities, region = "Unknown") {
@@ -168,6 +263,24 @@ function Hotels() {
   const [selectedLocationInfo, setSelectedLocationInfo] = useState(null);
   const [selectedCityGroup, setSelectedCityGroup] = useState(FILTER_ALL_OPTION);
   const [wishlist, setWishlist] = useState([]);
+  const [selectedHotel, setSelectedHotel] = useState(null);
+  const [bookingForm, setBookingForm] = useState({
+    checkInDate: "",
+    checkOutDate: "",
+    guests: "1",
+  });
+  const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
+  const [paymentForm, setPaymentForm] = useState({
+    cardholderName: "",
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
+  });
+  const [bookingErrors, setBookingErrors] = useState({});
+  const [paymentErrors, setPaymentErrors] = useState({});
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState(null);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
   const featuredSearches = useMemo(() => destinations.slice(0, 6), []);
 
@@ -418,6 +531,28 @@ out center tags 24;
     });
   }, [liveHotels, cityFilter, selectedCityGroup, hotelTypeFilter, starFilter, amenityFilter, sortBy]);
 
+  const selectedNightlyRate = useMemo(
+    () => (selectedHotel ? getNightlyRate(selectedHotel) : 0),
+    [selectedHotel]
+  );
+
+  const selectedStayNights = useMemo(
+    () => getStayNights(bookingForm.checkInDate, bookingForm.checkOutDate),
+    [bookingForm.checkInDate, bookingForm.checkOutDate]
+  );
+
+  const totalPrice = useMemo(() => {
+    const guests = Number(bookingForm.guests) || 1;
+    if (!selectedStayNights || !selectedNightlyRate) return 0;
+    return selectedStayNights * selectedNightlyRate + Math.max(0, guests - 1) * 25;
+  }, [bookingForm.guests, selectedNightlyRate, selectedStayNights]);
+
+  const receiptQrValue = useMemo(() => {
+    if (!paymentSuccess) return "";
+
+    return buildReceiptText(paymentSuccess);
+  }, [paymentSuccess]);
+
   const handleWishlist = (hotel) => {
     if (!user?.uid) return;
     const wishlistId = getHotelWishlistKey(hotel);
@@ -430,6 +565,167 @@ out center tags 24;
       saveUserWishlist(user.uid, next);
       return next;
     });
+  };
+
+  const resetPaymentForms = () => {
+    setBookingErrors({});
+    setPaymentErrors({});
+    setPaymentStatus("");
+    setPaymentSuccess(null);
+    setPaymentMethod(PAYMENT_METHODS[0]);
+    setBookingForm({
+      checkInDate: "",
+      checkOutDate: "",
+      guests: "1",
+    });
+    setPaymentForm({
+      cardholderName: "",
+      cardNumber: "",
+      expiryDate: "",
+      cvv: "",
+    });
+  };
+
+  const handleBookHotel = (hotel) => {
+    setSelectedHotel(hotel);
+    resetPaymentForms();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleBookingFieldChange = (e) => {
+    const { name, value } = e.target;
+    setBookingForm((prev) => ({ ...prev, [name]: value }));
+    setBookingErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handlePaymentFieldChange = (e) => {
+    const { name, value } = e.target;
+    let nextValue = value;
+
+    if (name === "cardNumber") nextValue = formatCardNumber(value);
+    if (name === "expiryDate") nextValue = normalizeExpiry(value);
+    if (name === "cvv") nextValue = value.replace(/\D/g, "").slice(0, 4);
+
+    setPaymentForm((prev) => ({ ...prev, [name]: nextValue }));
+    setPaymentErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handlePaymentMethodChange = (method) => {
+    setPaymentMethod(method);
+    setPaymentErrors({});
+    setPaymentStatus("");
+  };
+
+  const validateBookingForm = () => {
+    const nextErrors = {};
+    const guests = Number(bookingForm.guests);
+
+    if (!selectedHotel) nextErrors.hotel = "Please choose a hotel first.";
+    if (!bookingForm.checkInDate) nextErrors.checkInDate = "Please choose a check-in date.";
+    if (!bookingForm.checkOutDate) nextErrors.checkOutDate = "Please choose a check-out date.";
+    if (bookingForm.checkInDate && bookingForm.checkOutDate && selectedStayNights <= 0) {
+      nextErrors.checkOutDate = "Check-out date must be after check-in date.";
+    }
+    if (!bookingForm.guests || !Number.isFinite(guests) || guests < 1) {
+      nextErrors.guests = "Please enter at least 1 guest.";
+    }
+
+    setBookingErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const validatePaymentForm = () => {
+    if (paymentMethod === "Pay at Hotel") {
+      setPaymentErrors({});
+      return true;
+    }
+
+    const nextErrors = {};
+    if (!paymentForm.cardholderName.trim()) {
+      nextErrors.cardholderName = "Cardholder name is required.";
+    }
+    if (normalizeCardNumber(paymentForm.cardNumber).length < 13) {
+      nextErrors.cardNumber = "Enter a valid card number.";
+    }
+    if (!isValidExpiry(paymentForm.expiryDate)) {
+      nextErrors.expiryDate = "Enter a valid future expiry date in MM/YY format.";
+    }
+    if (!/^\d{3,4}$/.test(paymentForm.cvv)) {
+      nextErrors.cvv = "Enter a valid 3 or 4 digit CVV.";
+    }
+
+    setPaymentErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+
+    const bookingOk = validateBookingForm();
+    const paymentOk = validatePaymentForm();
+    if (!bookingOk || !paymentOk) {
+      setPaymentStatus("Please fix the highlighted fields and try again.");
+      return;
+    }
+
+    setIsSubmittingPayment(true);
+    setPaymentStatus("");
+
+    try {
+      const bookingReference = buildBookingReference();
+      const bookingId = `${Date.now()}`;
+      const nextPaymentSuccess = {
+        bookingId,
+        bookingReference,
+        userId: user.uid,
+        hotelId: selectedHotel.id,
+        hotelName: selectedHotel.name,
+        destination: `${selectedHotel.city}, ${selectedHotel.country}`,
+        checkInDate: bookingForm.checkInDate,
+        checkOutDate: bookingForm.checkOutDate,
+        guests: Number(bookingForm.guests),
+        totalPrice,
+        paymentMethod,
+        paymentStatus: "Paid",
+        bookingStatus: "Confirmed",
+        createdAt: new Date().toISOString(),
+        nightlyRate: selectedNightlyRate,
+        nights: selectedStayNights,
+        hotelImage: selectedHotel.image,
+        hotelAddress: selectedHotel.address,
+        cardLast4:
+          paymentMethod === "Pay at Hotel"
+            ? ""
+            : normalizeCardNumber(paymentForm.cardNumber).slice(-4),
+      };
+
+      await saveUserHotelBooking(user.uid, nextPaymentSuccess);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          BOOKING_CHATBOT_NOTICE_KEY,
+          JSON.stringify({
+            userId: user.uid,
+            createdAt: nextPaymentSuccess.createdAt,
+            hotelName: nextPaymentSuccess.hotelName,
+            destination: nextPaymentSuccess.destination,
+            checkInDate: nextPaymentSuccess.checkInDate,
+            checkOutDate: nextPaymentSuccess.checkOutDate,
+            guests: nextPaymentSuccess.guests,
+            totalPrice: nextPaymentSuccess.totalPrice,
+            paymentMethod: nextPaymentSuccess.paymentMethod,
+            bookingReference: nextPaymentSuccess.bookingReference,
+          })
+        );
+      }
+
+      setPaymentSuccess(nextPaymentSuccess);
+      setPaymentStatus("Payment successful. Your hotel booking is confirmed.");
+    } catch (_) {
+      setPaymentStatus("We could not save your booking right now. Please try again.");
+    } finally {
+      setIsSubmittingPayment(false);
+    }
   };
 
   return (
@@ -549,6 +845,198 @@ out center tags 24;
             Amenity means hotel facilities such as Wi-Fi, parking, breakfast, pool, accessibility, or air conditioning.
           </p>
         </section>
+
+        {selectedHotel && (
+          <section className="hotel-booking-panel">
+            <div className="hotel-booking-header">
+              <div>
+                <p className="hotel-booking-eyebrow">Hotel booking</p>
+                <h2>{selectedHotel.name}</h2>
+                <p>
+                  {selectedHotel.city}, {selectedHotel.country} - {selectedHotel.type} - {selectedHotel.stars}
+                </p>
+              </div>
+              <button type="button" className="hotel-booking-close" onClick={() => setSelectedHotel(null)}>
+                Close
+              </button>
+            </div>
+
+            <div className="hotel-booking-grid">
+              <form className="hotel-payment-form" onSubmit={handlePaymentSubmit}>
+                <div className="hotel-payment-section">
+                  <h3>Stay details</h3>
+                  <div className="hotel-payment-fields">
+                    <label>
+                      <span>Check-in date</span>
+                      <input
+                        name="checkInDate"
+                        type="date"
+                        value={bookingForm.checkInDate}
+                        onChange={handleBookingFieldChange}
+                        required
+                      />
+                      {bookingErrors.checkInDate && <small>{bookingErrors.checkInDate}</small>}
+                    </label>
+                    <label>
+                      <span>Check-out date</span>
+                      <input
+                        name="checkOutDate"
+                        type="date"
+                        value={bookingForm.checkOutDate}
+                        onChange={handleBookingFieldChange}
+                        required
+                      />
+                      {bookingErrors.checkOutDate && <small>{bookingErrors.checkOutDate}</small>}
+                    </label>
+                    <label>
+                      <span>Guests</span>
+                      <input
+                        name="guests"
+                        type="number"
+                        min="1"
+                        value={bookingForm.guests}
+                        onChange={handleBookingFieldChange}
+                        required
+                      />
+                      {bookingErrors.guests && <small>{bookingErrors.guests}</small>}
+                    </label>
+                  </div>
+                </div>
+
+                <div className="hotel-payment-section">
+                  <h3>Select payment method</h3>
+                  <div className="payment-methods" role="radiogroup" aria-label="Payment method">
+                    {PAYMENT_METHODS.map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        className={paymentMethod === method ? "payment-method is-selected" : "payment-method"}
+                        onClick={() => handlePaymentMethodChange(method)}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="selected-payment-method">
+                    Selected payment method: <strong>{paymentMethod}</strong>
+                  </p>
+                </div>
+
+                {(paymentMethod === "Credit Card" || paymentMethod === "Debit Card") && (
+                  <div className="hotel-payment-section">
+                    <h3>Card details</h3>
+                    <div className="hotel-payment-fields">
+                      <label>
+                        <span>Cardholder Name</span>
+                        <input
+                          name="cardholderName"
+                          type="text"
+                          value={paymentForm.cardholderName}
+                          onChange={handlePaymentFieldChange}
+                          placeholder="Name on card"
+                          required
+                        />
+                        {paymentErrors.cardholderName && <small>{paymentErrors.cardholderName}</small>}
+                      </label>
+                      <label>
+                        <span>Card Number</span>
+                        <input
+                          name="cardNumber"
+                          type="text"
+                          inputMode="numeric"
+                          value={paymentForm.cardNumber}
+                          onChange={handlePaymentFieldChange}
+                          placeholder="1234 5678 9012 3456"
+                          required
+                        />
+                        {paymentErrors.cardNumber && <small>{paymentErrors.cardNumber}</small>}
+                      </label>
+                      <label>
+                        <span>Expiry Date</span>
+                        <input
+                          name="expiryDate"
+                          type="text"
+                          inputMode="numeric"
+                          value={paymentForm.expiryDate}
+                          onChange={handlePaymentFieldChange}
+                          placeholder="MM/YY"
+                          required
+                        />
+                        {paymentErrors.expiryDate && <small>{paymentErrors.expiryDate}</small>}
+                      </label>
+                      <label>
+                        <span>CVV</span>
+                        <input
+                          name="cvv"
+                          type="password"
+                          inputMode="numeric"
+                          value={paymentForm.cvv}
+                          onChange={handlePaymentFieldChange}
+                          placeholder="123"
+                          required
+                        />
+                        {paymentErrors.cvv && <small>{paymentErrors.cvv}</small>}
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {paymentStatus && (
+                  <p className={paymentSuccess ? "hotel-payment-status is-success" : "hotel-payment-status is-error"}>
+                    {paymentStatus}
+                  </p>
+                )}
+
+                <button type="submit" className="hotel-payment-submit" disabled={isSubmittingPayment}>
+                  {isSubmittingPayment ? "Processing..." : paymentMethod === "Pay at Hotel" ? "Confirm Booking" : "Pay Now"}
+                </button>
+              </form>
+
+              <aside className="hotel-booking-summary">
+                <div className="hotel-booking-card">
+                  <p className="hotel-booking-eyebrow">Booking summary</p>
+                  <h3>{selectedHotel.name}</h3>
+                  <p>{selectedHotel.address}</p>
+                  <ul className="hotel-summary-list">
+                    <li><span>Destination</span><strong>{selectedHotel.city}, {selectedHotel.country}</strong></li>
+                    <li><span>Nightly rate</span><strong>{formatCurrency(selectedNightlyRate)}</strong></li>
+                    <li><span>Nights</span><strong>{selectedStayNights || "-"}</strong></li>
+                    <li><span>Guests</span><strong>{bookingForm.guests || "1"}</strong></li>
+                    <li><span>Payment method</span><strong>{paymentMethod}</strong></li>
+                    <li><span>Total price</span><strong>{formatCurrency(totalPrice)}</strong></li>
+                  </ul>
+                </div>
+              </aside>
+            </div>
+          </section>
+        )}
+
+        {paymentSuccess && (
+          <section className="hotel-receipt-panel">
+            <div className="hotel-receipt-copy">
+              <p className="hotel-booking-eyebrow">Receipt</p>
+              <h2>Payment successful. Your hotel booking is confirmed.</h2>
+              <p>Your receipt and QR code are ready below.</p>
+              <div className="hotel-receipt-details">
+                <p><strong>Booking ID:</strong> {paymentSuccess.bookingId}</p>
+                <p><strong>Booking Reference:</strong> {paymentSuccess.bookingReference}</p>
+                <p><strong>Hotel Name:</strong> {paymentSuccess.hotelName}</p>
+                <p><strong>Destination:</strong> {paymentSuccess.destination}</p>
+                <p><strong>Check-in date:</strong> {paymentSuccess.checkInDate}</p>
+                <p><strong>Check-out date:</strong> {paymentSuccess.checkOutDate}</p>
+                <p><strong>Guests:</strong> {paymentSuccess.guests}</p>
+                <p><strong>Amount paid:</strong> {formatCurrency(paymentSuccess.totalPrice)}</p>
+                <p><strong>Payment method:</strong> {paymentSuccess.paymentMethod}</p>
+                <p><strong>Payment status:</strong> {paymentSuccess.paymentStatus}</p>
+                <p><strong>Booking status:</strong> {paymentSuccess.bookingStatus}</p>
+              </div>
+            </div>
+            <div className="hotel-qr-card">
+              <QRCodeSVG value={receiptQrValue} size={210} includeMargin />
+              <p>Scan to view the booking receipt details on your phone.</p>
+            </div>
+          </section>
+        )}
 
         {searchTerm.trim() === "" && (
           <section className="popular-section">
@@ -672,6 +1160,9 @@ out center tags 24;
                           onClick={() => handleWishlist(hotel)}
                         >
                           {isSaved ? "Saved Wishlist" : "Save Wishlist"}
+                        </button>
+                        <button type="button" onClick={() => handleBookHotel(hotel)}>
+                          Book Now
                         </button>
                       </div>
                     </div>
