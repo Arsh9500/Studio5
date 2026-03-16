@@ -60,7 +60,8 @@ function DestinationDetail() {
     return (
       dest.estimatedCosts.hotelPerNight +
       dest.estimatedCosts.foodPerDay +
-      dest.estimatedCosts.localTransportPerDay
+      dest.estimatedCosts.localTransportPerDay +
+      (dest.estimatedCosts.activitiesPerDay ?? 0)
     );
   }, [dest]);
 
@@ -141,16 +142,23 @@ function DestinationDetail() {
 
       <section className="dest-costs">
         <h3>Estimated Costs (USD)</h3>
-        <p>Flight: ${dest.estimatedCosts.flight}</p>
         <p>Hotel per night: ${dest.estimatedCosts.hotelPerNight}</p>
         <p>Food per day: ${dest.estimatedCosts.foodPerDay}</p>
         <p>Local transport per day: ${dest.estimatedCosts.localTransportPerDay}</p>
+        <p>Activities per day: ${dest.estimatedCosts.activitiesPerDay ?? "N/A"}</p>
         <p className="dest-total">Estimated daily total: ${totalDailyCost}</p>
       </section>
 
       <section className="dest-actions">
         <button type="button" className="dest-btn dest-btn-primary" onClick={handleAddToItinerary}>
           Add to Itinerary
+        </button>
+        <button
+          type="button"
+          className="dest-btn dest-btn-secondary"
+          onClick={() => navigate("/budget", { state: { destinationId: dest.id } })}
+        >
+          Budget Planner
         </button>
         <button type="button" className="dest-btn dest-btn-secondary" onClick={handleWishlist}>
           {inWishlist ? "Saved to Wishlist" : "Save to Wishlist"}

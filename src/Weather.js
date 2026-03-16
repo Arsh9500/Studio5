@@ -23,6 +23,8 @@ function Weather() {
     "Cape Town",
   ];
 
+  const isEmpty = !result && !error;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -53,8 +55,13 @@ function Weather() {
     }
   };
 
+  // determine optional theme class (clear, clouds, rain, snow)
+  const themeClass = result
+    ? `weather-${(result.weather[0].main || "").toLowerCase()}`
+    : "";
+
   return (
-    <div className="weather-page">
+    <div className={`weather-page ${themeClass}`}> 
       <div className="weather-header">
         <img src="https://images.unsplash.com/photo-1501973801540-537f08ccae7f?w=100&auto=format&fit=crop" alt="weather icon" className="weather-header-icon" />
         <h2>Weather Checker</h2>
@@ -96,19 +103,24 @@ function Weather() {
 
       {result && (
         <div className="weather-result">
-          <h3>
-            {result.name}, {result.sys?.country}
-          </h3>
+          <div className="weather-result-header">
+            <h3>
+              {result.name}, {result.sys?.country}
+            </h3>
+            {result.weather[0].icon && (
+              <img
+                alt={result.weather[0].description}
+                src={`https://openweathermap.org/img/wn/${result.weather[0].icon}@2x.png`}
+                className="weather-result-icon"
+              />
+            )}
+          </div>
           <p className="temp">{Math.round(result.main.temp)}&deg;C</p>
           <p className="desc">{result.weather[0].description}</p>
-          <p>Humidity: {result.main.humidity}%</p>
-          <p>Wind: {result.wind.speed} m/s</p>
-          {result.weather[0].icon && (
-            <img
-              alt={result.weather[0].description}
-              src={`https://openweathermap.org/img/wn/${result.weather[0].icon}@2x.png`}
-            />
-          )}
+          <div className="weather-details">
+            <span>💧 {result.main.humidity}%</span>
+            <span>🌬️ {result.wind.speed} m/s</span>
+          </div>
         </div>
       )}
     </div>

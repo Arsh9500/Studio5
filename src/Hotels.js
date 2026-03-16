@@ -668,6 +668,27 @@ out center tags 24;
                         </button>
                         <button
                           type="button"
+                          onClick={() =>
+                            navigate("/budget", {
+                              state: {
+                                hotelName: hotel.name,
+                                hotelPricePerNight: "",
+                                destinationSearch: hotel.city || hotel.country || "",
+                                selectedLocation: {
+                                  name: hotel.city || hotel.name,
+                                  country: hotel.country,
+                                  region: hotel.region,
+                                  lat: hotel.lat,
+                                  lon: hotel.lon,
+                                },
+                              },
+                            })
+                          }
+                        >
+                          Budget Planner
+                        </button>
+                        <button
+                          type="button"
                           className={isSaved ? "wishlist-btn is-saved" : "wishlist-btn"}
                           onClick={() => handleWishlist(hotel)}
                         >
