@@ -372,14 +372,14 @@ Local transport: ${base.transport}`;
               <h3>Budget Planning</h3>
               <p>
                 Set your trip budget, track expenses, and get smart cost
-                estimates for flights, stays, and activities.
+                estimates for stays, food, transport, and activities.
               </p>
               <button
                 type="button"
                 className="home-card-cta"
                 onClick={() =>
                   user
-                    ? navigate("/planner")
+                    ? navigate("/budget")
                     : navigate("/register", { state: { from: "/" } })
                 }
               >
@@ -435,7 +435,11 @@ Local transport: ${base.transport}`;
               <button
                 type="button"
                 className="home-card-cta"
-                onClick={() => navigate("/weather")}
+                onClick={() =>
+                  user
+                    ? navigate("/weather")
+                    : navigate("/register", { state: { from: "/weather" } })
+                }
               >
                 Check weather
               </button>

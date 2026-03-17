@@ -12,7 +12,7 @@ export const destinations = [
     travelType: "Culture",
     budgetLevel: "High",
     attractions: ["Eiffel Tower", "Louvre Museum", "Notre-Dame Cathedral"],
-    estimatedCosts: { flight: 750, hotelPerNight: 180, foodPerDay: 60, localTransportPerDay: 20 },
+    estimatedCosts: { flight: 750, hotelPerNight: 180, foodPerDay: 60, localTransportPerDay: 20, activitiesPerDay: 50 },
   },
   {
     id: "tokyo",
@@ -26,7 +26,7 @@ export const destinations = [
     travelType: "City",
     budgetLevel: "High",
     attractions: ["Senso-ji Temple", "Shibuya Crossing", "Tokyo Skytree"],
-    estimatedCosts: { flight: 980, hotelPerNight: 140, foodPerDay: 45, localTransportPerDay: 18 },
+    estimatedCosts: { flight: 980, hotelPerNight: 140, foodPerDay: 45, localTransportPerDay: 18, activitiesPerDay: 55 },
   },
   {
     id: "bali",
@@ -40,7 +40,7 @@ export const destinations = [
     travelType: "Beach",
     budgetLevel: "Medium",
     attractions: ["Ubud Monkey Forest", "Tanah Lot", "Tegallalang Rice Terraces"],
-    estimatedCosts: { flight: 920, hotelPerNight: 70, foodPerDay: 25, localTransportPerDay: 12 },
+    estimatedCosts: { flight: 920, hotelPerNight: 70, foodPerDay: 25, localTransportPerDay: 12, activitiesPerDay: 35 },
   },
   {
     id: "newyork",
@@ -54,7 +54,7 @@ export const destinations = [
     travelType: "City",
     budgetLevel: "High",
     attractions: ["Statue of Liberty", "Central Park", "Times Square"],
-    estimatedCosts: { flight: 420, hotelPerNight: 220, foodPerDay: 70, localTransportPerDay: 25 },
+    estimatedCosts: { flight: 420, hotelPerNight: 220, foodPerDay: 70, localTransportPerDay: 25, activitiesPerDay: 60 },
   },
   {
     id: "cape-town",
@@ -68,7 +68,7 @@ export const destinations = [
     travelType: "Adventure",
     budgetLevel: "Medium",
     attractions: ["Table Mountain", "V and A Waterfront", "Boulders Beach"],
-    estimatedCosts: { flight: 1100, hotelPerNight: 90, foodPerDay: 30, localTransportPerDay: 15 },
+    estimatedCosts: { flight: 1100, hotelPerNight: 90, foodPerDay: 30, localTransportPerDay: 15, activitiesPerDay: 40 },
   },
   {
     id: "london",
@@ -82,7 +82,7 @@ export const destinations = [
     travelType: "Culture",
     budgetLevel: "High",
     attractions: ["Big Ben", "Tower Bridge", "British Museum"],
-    estimatedCosts: { flight: 800, hotelPerNight: 190, foodPerDay: 65, localTransportPerDay: 22 },
+    estimatedCosts: { flight: 800, hotelPerNight: 190, foodPerDay: 65, localTransportPerDay: 22, activitiesPerDay: 55 },
   },
   {
     id: "dubai",
@@ -96,7 +96,7 @@ export const destinations = [
     travelType: "City",
     budgetLevel: "High",
     attractions: ["Burj Khalifa", "Palm Jumeirah", "Dubai Mall"],
-    estimatedCosts: { flight: 950, hotelPerNight: 160, foodPerDay: 55, localTransportPerDay: 20 },
+    estimatedCosts: { flight: 950, hotelPerNight: 160, foodPerDay: 55, localTransportPerDay: 20, activitiesPerDay: 50 },
   },
   {
     id: "sydney",
@@ -110,7 +110,7 @@ export const destinations = [
     travelType: "Adventure",
     budgetLevel: "Medium",
     attractions: ["Sydney Opera House", "Bondi Beach", "Harbour Bridge"],
-    estimatedCosts: { flight: 1200, hotelPerNight: 130, foodPerDay: 50, localTransportPerDay: 18 },
+    estimatedCosts: { flight: 1200, hotelPerNight: 130, foodPerDay: 50, localTransportPerDay: 18, activitiesPerDay: 45 },
   },
   {
     id: "goa",
@@ -124,7 +124,7 @@ export const destinations = [
     travelType: "Beach",
     budgetLevel: "Medium",
     attractions: ["Baga Beach", "Fort Aguada", "Basilica of Bom Jesus"],
-    estimatedCosts: { flight: 650, hotelPerNight: 60, foodPerDay: 22, localTransportPerDay: 10 },
+    estimatedCosts: { flight: 650, hotelPerNight: 60, foodPerDay: 22, localTransportPerDay: 10, activitiesPerDay: 30 },
   },
 ];
 

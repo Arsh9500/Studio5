@@ -9,6 +9,7 @@ import Destinations from "./Destinations";
 import DestinationDetail from "./DestinationDetail";
 import Hotels from "./Hotels";
 import Planner from "./Planner";
+import Budget from "./Budget";
 import Profile from "./Profile";
 import Weather from "./Weather";
 import Dashboard from "./Dashboard";
@@ -34,7 +35,8 @@ function App() {
           <Route path="/destinations/:id" element={<ProtectedRoute><DestinationDetail /></ProtectedRoute>} />
           <Route path="/hotels" element={<ProtectedRoute><Hotels /></ProtectedRoute>} />
           <Route path="/planner" element={<ProtectedRoute><Planner /></ProtectedRoute>} />
-          <Route path="/weather" element={<Weather />} />
+          <Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
+          <Route path="/weather" element={<ProtectedRoute><Weather /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Routes>

@@ -1,0 +1,270 @@
+.budget-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 18px 36px;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #0f172a;
+}
+
+.budget-header {
+  margin-bottom: 18px;
+}
+
+.budget-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.budget-logo {
+  width: 160px;
+  height: 36px;
+}
+
+.budget-nav-links {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.budget-nav-links a {
+  text-decoration: none;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.budget-main {
+  display: grid;
+  gap: 16px;
+}
+
+.budget-intro h1 {
+  margin: 0 0 6px;
+  font-size: 1.9rem;
+}
+
+.budget-intro p {
+  margin: 0;
+  color: #334155;
+}
+
+.budget-selected {
+  margin-top: 10px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.budget-form-card,
+.budget-summary-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  padding: 18px;
+}
+
+.budget-form-card h2,
+.budget-summary-card h2 {
+  margin: 0 0 14px;
+  font-size: 1.25rem;
+}
+
+.budget-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.budget-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.budget-field label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.budget-field input,
+.budget-field select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-family: inherit;
+}
+
+.budget-help-text {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.budget-suggestions {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  max-height: 210px;
+  overflow: auto;
+}
+
+.budget-suggestions li {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.budget-suggestions li:last-child {
+  border-bottom: none;
+}
+
+.budget-suggestion-btn {
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: #0f172a;
+}
+
+.budget-suggestion-btn:hover {
+  background: #f1f5f9;
+}
+
+.budget-hotel-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.budget-hotel-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+  align-items: center;
+}
+
+.budget-hotel-item.selected {
+  border-color: #1d4ed8;
+  background: rgba(29, 78, 216, 0.12);
+}
+
+.budget-hotel-title {
+  font-weight: 600;
+}
+
+.budget-hotel-meta {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.budget-hotel-action {
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.budget-amenities {
+  grid-column: 1 / -1;
+}
+
+.amenity-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.amenity-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.budget-breakdown {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.budget-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.budget-total {
+  font-size: 1.05rem;
+  margin-top: 8px;
+}
+
+.budget-remaining {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.budget-divider {
+  border-top: 1px solid #e2e8f0;
+  margin: 8px 0;
+}
+
+.budget-warning {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.budget-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.budget-actions button,
+.budget-actions .budget-secondary {
+  border: none;
+  background: #1d4ed8;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.budget-actions .budget-secondary {
+  background: #64748b;
+}
+
+@media (max-width: 580px) {
+  .budget-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .budget-actions {
+    flex-direction: column;
+  }
+}
