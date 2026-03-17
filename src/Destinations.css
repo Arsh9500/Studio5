@@ -483,6 +483,10 @@
   transform: translateY(-4px);
   box-shadow: 0 22px 40px rgba(17, 43, 94, 0.2);
 }
+.dest-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.15);
+}
 
 .dest-card-image {
   height: 176px;
@@ -496,6 +500,13 @@
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, transparent 10%, rgba(8, 22, 56, 0.25) 100%);
+}
+.dest-card-image::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, rgba(0,0,0,0.35), transparent);
 }
 
 .dest-card-body {
@@ -525,6 +536,14 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+.dest-card-actions a,
+.dest-card-actions button {
+  transition: background 0.2s;
+}
+.dest-card-actions button:hover,
+.dest-card-actions a:hover {
+  opacity: 0.9;
 }
 
 .dest-view-link,

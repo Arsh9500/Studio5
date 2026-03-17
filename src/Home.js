@@ -120,15 +120,15 @@ function Home() {
             <div className="home-card-body">
               <h3>Budget Planning</h3>
               <p>
-                Set your trip budget, track expenses, and get smart cost estimates for
-                flights, stays, and activities.
+                Set your trip budget, track expenses, and get smart cost
+                estimates for flights, stays, and activities.
               </p>
               <button
                 type="button"
                 className="home-card-cta"
                 onClick={() =>
                   user
-                    ? navigate("/planner")
+                    ? navigate("/budget")
                     : navigate("/register", { state: { from: "/" } })
                 }
               >
@@ -182,7 +182,11 @@ function Home() {
               <button
                 type="button"
                 className="home-card-cta"
-                onClick={() => navigate("/weather")}
+                onClick={() =>
+                  user
+                    ? navigate("/weather")
+                    : navigate("/register", { state: { from: "/weather" } })
+                }
               >
                 Check weather
               </button>

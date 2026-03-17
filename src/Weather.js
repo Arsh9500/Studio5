@@ -11,6 +11,18 @@ function Weather() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
+  // clickable examples to make the page look good
+  const sampleCities = [
+    "Paris",
+    "Tokyo",
+    "New York",
+    "Sydney",
+    "Cairo",
+    "Rio de Janeiro",
+    "Moscow",
+    "Cape Town",
+  ];
+
   const isEmpty = !result && !error;
 
   const handleSubmit = async (e) => {
@@ -43,13 +55,17 @@ function Weather() {
     }
   };
 
-  return (
-    <div className="weather-page">
-      <h2>Weather Checker</h2>
-      <p className="weather-subtitle">
-        Search a city to view current temperature, humidity, and wind speed.
-      </p>
+  // determine optional theme class (clear, clouds, rain, snow)
+  const themeClass = result
+    ? `weather-${(result.weather[0].main || "").toLowerCase()}`
+    : "";
 
+  return (
+    <div className={`weather-page ${themeClass}`}> 
+      <div className="weather-header">
+        <img src="https://images.unsplash.com/photo-1501973801540-537f08ccae7f?w=100&auto=format&fit=crop" alt="weather icon" className="weather-header-icon" />
+        <h2>Weather Checker</h2>
+      </div>
       <form onSubmit={handleSubmit} className="weather-form">
         <input
           type="text"
@@ -61,24 +77,50 @@ function Weather() {
         <button type="submit">Search</button>
       </form>
 
+      <div className="weather-samples">
+        <p>Try one of these:</p>
+        <div className="weather-sample-list">
+          {sampleCities.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className="weather-sample"
+              onClick={() => {
+                setLocation(c);
+                // trigger search immediately
+                const ev = { preventDefault: () => {} };
+                handleSubmit(ev);
+              }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {error && <p className="weather-error">{error}</p>}
       {isEmpty && <p className="weather-empty">No weather data yet. Enter a location and click Search.</p>}
 
       {result && (
         <div className="weather-result">
-          <h3>
-            {result.name}, {result.sys?.country}
-          </h3>
+          <div className="weather-result-header">
+            <h3>
+              {result.name}, {result.sys?.country}
+            </h3>
+            {result.weather[0].icon && (
+              <img
+                alt={result.weather[0].description}
+                src={`https://openweathermap.org/img/wn/${result.weather[0].icon}@2x.png`}
+                className="weather-result-icon"
+              />
+            )}
+          </div>
           <p className="temp">{Math.round(result.main.temp)}&deg;C</p>
           <p className="desc">{result.weather[0].description}</p>
-          <p>Humidity: {result.main.humidity}%</p>
-          <p>Wind: {result.wind.speed} m/s</p>
-          {result.weather[0].icon && (
-            <img
-              alt={result.weather[0].description}
-              src={`https://openweathermap.org/img/wn/${result.weather[0].icon}@2x.png`}
-            />
-          )}
+          <div className="weather-details">
+            <span>💧 {result.main.humidity}%</span>
+            <span>🌬️ {result.wind.speed} m/s</span>
+          </div>
         </div>
       )}
     </div>
