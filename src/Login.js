@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import "./Login.css";
@@ -10,17 +10,17 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [info, setInfo] = useState(
-    location.state?.verificationSent
-      ? `Verification email sent to ${location.state?.registeredEmail || "your inbox"}. Verify first, then sign in.`
-      : ""
-  );
-  const { login, loginWithGoogle } = useAuth();
+  const { user, login, loginWithGoogle } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true, state: { welcomeType: "back" } });
+    }
+  }, [from, navigate, user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setInfo("");
 
     const result = await login(email.trim(), password);
     if (result.ok) {
@@ -33,12 +33,12 @@ function Login() {
 
   const handleGoogleLogin = async () => {
     setError("");
-    setInfo("");
     const result = await loginWithGoogle();
-    if (result.ok) {
+    if (result.ok && !result.redirecting) {
       navigate(from, { replace: true, state: { welcomeType: "back" } });
       return;
     }
+    if (result.redirecting) return;
     setError(result.error || "Google sign-in failed.");
   };
 
@@ -50,7 +50,6 @@ function Login() {
         </p>
         <h1>Sign In</h1>
         {error && <p className="form-error">{error}</p>}
-        {info && <p className="form-info">{info}</p>}
 
         <form onSubmit={handleSubmit}>
           <div className="input-group">
