@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { destinations } from "./data/destinations";
 import Logo from "./components/Logo";
 import { useAuth } from "./context/AuthContext";
+import { useItinerary } from "./context/ItineraryContext";
 import { saveUserHotelBooking } from "./utils/bookings";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import "./Destinations.css";
@@ -249,7 +250,9 @@ async function resolveHotelImage(hotelName, locationName, signal) {
 
 function Hotels() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const { itineraryDestination, setItineraryDestination } = useItinerary();
   const [searchTerm, setSearchTerm] = useState("");
   const [cityFilter, setCityFilter] = useState("");
   const [hotelTypeFilter, setHotelTypeFilter] = useState(FILTER_ALL_OPTION);
@@ -281,6 +284,9 @@ function Hotels() {
   const [paymentStatus, setPaymentStatus] = useState("");
   const [paymentSuccess, setPaymentSuccess] = useState(null);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [hasAppliedAutoDestination, setHasAppliedAutoDestination] = useState(false);
+
+  const routeDestination = (location.state?.destination || "").trim();
 
   const featuredSearches = useMemo(() => destinations.slice(0, 6), []);
 
@@ -297,6 +303,16 @@ function Hotels() {
       ignore = true;
     };
   }, [user?.uid]);
+
+  useEffect(() => {
+    // Auto-load hotels from itinerary destination once when user lands on this page.
+    if (hasAppliedAutoDestination) return;
+    const nextDestination = routeDestination || itineraryDestination;
+    if (!nextDestination) return;
+
+    setSearchTerm(nextDestination);
+    setHasAppliedAutoDestination(true);
+  }, [hasAppliedAutoDestination, itineraryDestination, routeDestination]);
 
   const fetchLiveHotels = useCallback(async (rawQuery, signal) => {
     const q = rawQuery.trim();
@@ -587,6 +603,7 @@ out center tags 24;
   };
 
   const handleBookHotel = (hotel) => {
+    setItineraryDestination(`${hotel.city}, ${hotel.country}`);
     setSelectedHotel(hotel);
     resetPaymentForms();
     window.scrollTo({ top: 0, behavior: "smooth" });
