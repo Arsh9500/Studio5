@@ -8,6 +8,7 @@
 }
 
 .weather-page {
+  position: relative;
   width: min(820px, 100%);
   margin: 0;
   padding: 2rem 1.5rem;
@@ -25,6 +26,25 @@
   justify-content: center;
   gap: 0.6rem;
   margin-bottom: 1rem;
+}
+
+.weather-back {
+  position: absolute;
+  top: 1.4rem;
+  left: 1.4rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1f2937;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.weather-back:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .weather-header-icon {
@@ -190,6 +210,86 @@
   color: #1e293b;
 }
 
+.weather-ai {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(110, 123, 147, 0.3);
+  text-align: left;
+}
+
+.weather-ai h4 {
+  margin: 0 0 0.35rem;
+  color: #0b1220;
+}
+
+.weather-ai p {
+  margin: 0;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.weather-places {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(110, 123, 147, 0.3);
+  text-align: left;
+}
+
+.weather-places h4 {
+  margin: 0 0 0.5rem;
+  color: #0b1220;
+}
+
+.weather-places-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.weather-place-item {
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 12px;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.place-name {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.place-rating {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.place-address {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.place-link {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: #0b79f2;
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.place-link:hover {
+  background: #095ec3;
+}
+
 .weather-forecast {
   margin-top: 1.2rem;
   text-align: left;
@@ -206,6 +306,22 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.8rem;
+}
+
+.weather-today-grid {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.weather-today-grid::-webkit-scrollbar {
+  height: 8px;
+}
+
+.weather-today-grid::-webkit-scrollbar-thumb {
+  background: rgba(0, 95, 163, 0.5);
+  border-radius: 999px;
 }
 
 .weather-forecast-item {

@@ -13,7 +13,7 @@ def gemini_is_configured():
 def generate_travel_reply(message, context=None):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-      raise ValueError("GEMINI_API_KEY is not configured on the backend.")
+        raise ValueError("GEMINI_API_KEY is not configured on the backend.")
 
     prompt = build_travel_prompt(message, context or {})
     endpoint = (

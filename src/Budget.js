@@ -5,23 +5,10 @@ import Logo from "./components/Logo";
 import "./Budget.css";
 
 const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 function safeNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
-}
-
-function buildHotelPayload({ budget, pastChoices }) {
-  const payload = {
-    budget: budget || 0,
-    location_preference: "city centre",
-    amenities: [],
-  };
-  if (pastChoices && pastChoices.length) {
-    payload.past_choices = pastChoices;
-  }
-  return payload;
 }
 
 function Budget() {
@@ -34,6 +21,7 @@ function Budget() {
 
   const [destinationSearch, setDestinationSearch] = useState(state.destinationSearch || "");
   const [destinationId, setDestinationId] = useState(state.destinationId || "");
+  const [selectedLocation, setSelectedLocation] = useState(state.selectedLocation || null);
   const [destinationCosts, setDestinationCosts] = useState({
     foodPerDay: 0,
     localTransportPerDay: 0,
@@ -41,17 +29,10 @@ function Budget() {
     hotelPerNight: 0,
   });
 
-  const [selectedLocation, setSelectedLocation] = useState(state.selectedLocation || null);
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
 
-  const [hotelSearchResults, setHotelSearchResults] = useState([]);
-  const [hotelSearchLoading, setHotelSearchLoading] = useState(false);
-  const [hotelSearchStatus, setHotelSearchStatus] = useState("");
-
-  const [hotelName, setHotelName] = useState(state.hotelName || "");
-  const [hotelPricePerNight, setHotelPricePerNight] = useState(state.hotelPricePerNight || "");
 
   const destination = useMemo(() => getDestination(destinationId), [destinationId]);
 
@@ -67,6 +48,13 @@ function Budget() {
     return match?.id || "";
   };
 
+  const DEFAULT_ESTIMATED_COSTS = {
+    foodPerDay: 45,
+    localTransportPerDay: 18,
+    activitiesPerDay: 40,
+    hotelPerNight: 130,
+  };
+
   const selectLocation = (loc) => {
     setSelectedLocation(loc);
     setDestinationSearch(loc.name);
@@ -75,6 +63,10 @@ function Budget() {
 
     const matchId = findDestinationIdFromLocation(loc.name);
     setDestinationId(matchId);
+
+    if (!matchId) {
+      setDestinationCosts(DEFAULT_ESTIMATED_COSTS);
+    }
   };
 
   const fetchLocationSuggestions = async (query, signal) => {
@@ -134,121 +126,6 @@ function Budget() {
     }
   };
 
-  const fetchHotelsForLocation = async (loc) => {
-    if (!loc) {
-      setHotelSearchResults([]);
-      setHotelSearchStatus("");
-      return;
-    }
-
-    setHotelSearchLoading(true);
-    setHotelSearchStatus("");
-
-    const overpassQuery = `
-[out:json][timeout:25];
-(
-  node["tourism"~"hotel|guest_house|hostel|motel|apartment"](around:15000,${loc.lat},${loc.lon});
-  way["tourism"~"hotel|guest_house|hostel|motel|apartment"](around:15000,${loc.lat},${loc.lon});
-  relation["tourism"~"hotel|guest_house|hostel|motel|apartment"](around:15000,${loc.lat},${loc.lon});
-);
-out center tags 24;
-    `.trim();
-
-    try {
-      const resp = await fetch(OVERPASS_URL, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "text/plain;charset=UTF-8",
-        },
-        body: overpassQuery,
-      });
-
-      if (!resp.ok) {
-        throw new Error(`Hotels API request failed (${resp.status})`);
-      }
-
-      const payload = await resp.json();
-      const elements = Array.isArray(payload?.elements) ? payload.elements : [];
-      const hotels = elements.slice(0, 16).map((item, index) => {
-        const tags = item.tags || {};
-        const name = tags.name || `Hotel ${index + 1}`;
-        const city = tags["addr:city"] || tags["addr:town"] || tags["addr:village"] || loc.name;
-        const country = tags["addr:country"] || loc.country || "";
-        const address = [tags["addr:street"], tags["addr:housenumber"], city, country]
-          .filter(Boolean)
-          .join(", ");
-
-        return {
-          id: `${item.type}-${item.id}`,
-          name,
-          city,
-          country,
-          address,
-          lat: item.lat || item.center?.lat || loc.lat,
-          lon: item.lon || item.center?.lon || loc.lon,
-        };
-      });
-
-      setHotelSearchResults(hotels);
-      setHotelSearchStatus(hotels.length ? "" : "No hotels found for this location.");
-    } catch (err) {
-      console.error(err);
-      setHotelSearchStatus("Unable to fetch hotels for this location.");
-      setHotelSearchResults([]);
-    } finally {
-      setHotelSearchLoading(false);
-    }
-  };
-
-  const fetchHotelPriceForName = async (name) => {
-    if (!name) return;
-    setHotelSearchStatus("Looking up hotel price...");
-
-    const payload = buildHotelPayload({
-      budget: totalBudget,
-      pastChoices: [name],
-    });
-
-    try {
-      const resp = await fetch("http://localhost:5000/recommend-hotels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!resp.ok) {
-        throw new Error(`Server responded with ${resp.status}`);
-      }
-
-      const data = await resp.json();
-      const match = Array.isArray(data?.recommendations)
-        ? data.recommendations.find((item) => item.hotel_name === name)
-        : null;
-
-      if (match) {
-        setHotelPricePerNight(match.price_per_night);
-        setHotelSearchStatus("");
-      } else {
-        const fallback = destination?.estimatedCosts?.hotelPerNight || 0;
-        setHotelPricePerNight(fallback);
-        setHotelSearchStatus(
-          fallback
-            ? `Hotel pricing not available; using destination average ($${fallback.toFixed(0)}).`
-            : "Hotel pricing not available; please enter it manually."
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      const fallback = destination?.estimatedCosts?.hotelPerNight || 0;
-      setHotelPricePerNight(fallback);
-      setHotelSearchStatus(
-        fallback
-          ? `Unable to fetch hotel pricing; using destination average ($${fallback.toFixed(0)}).`
-          : "Unable to fetch hotel pricing. Please enter it manually."
-      );
-    }
-  };
 
   useEffect(() => {
     if (!destinationId) return;
@@ -273,6 +150,16 @@ out center tags 24;
   }, [destination]);
 
   useEffect(() => {
+    if (!destinationId && selectedLocation) return;
+
+    // When there is no matching preset destination but a location is chosen,
+    // keep the destination search text set to the selected place name.
+    if (!destinationId && selectedLocation) {
+      setDestinationSearch(selectedLocation.name);
+    }
+  }, [destinationId, selectedLocation]);
+
+  useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(() => {
       fetchLocationSuggestions(destinationSearch, controller.signal);
@@ -285,37 +172,14 @@ out center tags 24;
   }, [destinationSearch]);
 
   useEffect(() => {
-    fetchHotelsForLocation(selectedLocation);
-  }, [selectedLocation]);
-
-  useEffect(() => {
     if (!selectedLocation) return;
     const matchId = findDestinationIdFromLocation(selectedLocation.name);
     setDestinationId(matchId);
   }, [selectedLocation]);
 
-  useEffect(() => {
-    if (!hotelName) return;
-    fetchHotelPriceForName(hotelName);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelName, totalBudget]);
-
-  const handleHotelSearchSelect = (hotel) => {
-    setHotelName(hotel.name);
-
-    // If the hotel API cannot provide a price, use the destination's typical nightly rate.
-    const fallbackPrice =
-      destinationCosts.hotelPerNight || destination?.estimatedCosts?.hotelPerNight || 0;
-    setHotelPricePerNight(fallbackPrice);
-    setHotelSearchStatus(
-      fallbackPrice
-        ? `Estimated nightly rate set from destination averages ($${fallbackPrice.toFixed(0)}).`
-        : "Select a hotel to set a price or enter it manually."
-    );
-  };
 
   const nights = Math.max(0, safeNumber(days));
-  const hotelCost = safeNumber(hotelPricePerNight) * nights;
+  const hotelCost = safeNumber(destinationCosts.hotelPerNight) * nights;
   const foodCost = safeNumber(destinationCosts.foodPerDay) * nights;
   const transportCost = safeNumber(destinationCosts.localTransportPerDay) * nights;
   const activitiesCost = safeNumber(destinationCosts.activitiesPerDay) * nights;
@@ -349,6 +213,10 @@ out center tags 24;
             {destination ? (
               <>
                 Selected destination: <strong>{destination.name}</strong>
+              </>
+            ) : selectedLocation ? (
+              <>
+                Selected location: <strong>{selectedLocation.name}</strong>
               </>
             ) : (
               "Select a destination to auto-populate food, transport, and activity cost estimates."
@@ -392,10 +260,6 @@ out center tags 24;
                   setDestinationSearch(e.target.value);
                   setLocationSuggestions([]);
                   setSelectedLocation(null);
-                  setHotelSearchResults([]);
-                  setHotelName("");
-                  setHotelPricePerNight("");
-                  setHotelSearchStatus("");
                 }}
                 placeholder="Type a city or country (e.g. Paris)"
                 autoComplete="off"
@@ -422,65 +286,8 @@ out center tags 24;
                 </ul>
               )}
 
-              {selectedLocation && (
-                <p className="budget-help-text">
-                  Searching hotels near <strong>{selectedLocation.name}</strong>
-                  {selectedLocation.region ? `, ${selectedLocation.region}` : ""}
-                  {selectedLocation.country ? `, ${selectedLocation.country}` : ""}
-                  {" • "}
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                      selectedLocation.name
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View on map
-                  </a>
-                </p>
-              )}
             </div>
 
-            <div className="budget-field">
-              <label>Hotels in area</label>
-              {hotelSearchLoading && <p className="budget-help-text">Fetching hotels…</p>}
-              {hotelSearchStatus && <p className="budget-help-text">{hotelSearchStatus}</p>}
-              {hotelSearchResults.length > 0 && (
-                <div className="budget-hotel-list">
-                  {hotelSearchResults.map((hotel) => (
-                    <button
-                      key={hotel.id}
-                      type="button"
-                      className={`budget-hotel-item ${hotelName === hotel.name ? "selected" : ""}`}
-                      onClick={() => handleHotelSearchSelect(hotel)}
-                    >
-                      <span className="budget-hotel-title">{hotel.name}</span>
-                      <span className="budget-hotel-meta">
-                        {hotel.address || `${hotel.city}, ${hotel.country}`}
-                      </span>
-                      <span className="budget-hotel-action">
-                        {hotelName === hotel.name ? "Selected" : "Select"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <p className="budget-help-text">
-                Selecting a hotel will fetch a nightly price from the hotel API (if available).
-              </p>
-            </div>
-
-            <div className="budget-field">
-              <label htmlFor="budget-hotel-price">Hotel price per night</label>
-              <input
-                id="budget-hotel-price"
-                type="number"
-                min="0"
-                placeholder="Hotel price per night"
-                value={hotelPricePerNight}
-                onChange={(e) => setHotelPricePerNight(e.target.value)}
-              />
-            </div>
 
           </div>
         </section>
