@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { isWelcomeEmailConfigured, sendWelcomeEmail } from "./utils/email";
@@ -10,10 +10,16 @@ function Register() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
-  const { register, loginWithGoogle } = useAuth();
+  const { user, register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || "/";
+
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true, state: { welcomeType: "new" } });
+    }
+  }, [from, navigate, user]);
 
   const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   const validPassword = (value) =>
@@ -43,14 +49,7 @@ function Register() {
 
     const result = await register(name.trim(), trimmedEmail, password);
     if (result.ok) {
-      navigate("/login", {
-        replace: true,
-        state: {
-          from,
-          verificationSent: true,
-          registeredEmail: trimmedEmail,
-        },
-      });
+      navigate(from, { replace: true, state: { welcomeType: "new" } });
       return;
     }
 
@@ -60,7 +59,7 @@ function Register() {
   const handleGoogleRegister = async () => {
     setError("");
     const result = await loginWithGoogle();
-    if (result.ok) {
+    if (result.ok && !result.redirecting) {
       if (result.isNewUser && isWelcomeEmailConfigured()) {
         await sendWelcomeEmail({
           name: result.user?.displayName || result.user?.name,
@@ -71,6 +70,7 @@ function Register() {
       navigate(from, { replace: true, state: { welcomeType: "new" } });
       return;
     }
+    if (result.redirecting) return;
     setError(result.error || "Google sign-in failed.");
   };
 

@@ -2,11 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
-  getAdditionalUserInfo,
+  getRedirectResult,
   onAuthStateChanged,
-  sendEmailVerification,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
 } from "firebase/auth";
@@ -23,20 +22,47 @@ import { auth, db } from "../firebase";
 
 const AUTH_USER = "trip_user";
 const ADMIN_EMAIL = "admin123@gmail.com";
+const GOOGLE_REDIRECT_FLAG = "google_auth_redirect";
 const googleProvider = new GoogleAuthProvider();
 const AuthContext = createContext(null);
+
+function getFriendlyAuthError(error, fallbackMessage) {
+  const code = error?.code || "";
+  const host = typeof window !== "undefined" ? window.location.origin : "this site";
+
+  switch (code) {
+    case "auth/network-request-failed":
+      return `Firebase Auth could not be reached from ${host}. Open the app from http://localhost:3000 or add this domain in Firebase Authorized Domains.`;
+    case "auth/unauthorized-domain":
+      return `This domain is not authorized for Firebase sign-in. Add ${host} in Firebase Authentication > Settings > Authorized domains.`;
+    case "auth/configuration-not-found":
+      return "Firebase Authentication is not configured for this project. Enable the sign-in provider in the Firebase console.";
+    case "auth/operation-not-allowed":
+      return "This sign-in method is disabled in Firebase. Enable it in the Firebase console.";
+    default:
+      return error?.message || fallbackMessage;
+  }
+}
 
 function getRole(email) {
   return email === ADMIN_EMAIL ? "admin" : "user";
 }
 
-function isPasswordAccount(firebaseUser) {
-  return firebaseUser?.providerData?.some((provider) => provider.providerId === "password");
+function isAllowedSignedInUser(firebaseUser) {
+  return !!firebaseUser;
 }
 
-function isAllowedSignedInUser(firebaseUser) {
-  if (!firebaseUser) return false;
-  return !isPasswordAccount(firebaseUser) || firebaseUser.emailVerified;
+function buildBaseUser(firebaseUser, fallbackName = "") {
+  const cleanName = (firebaseUser.displayName || fallbackName || "").trim();
+
+  return {
+    uid: firebaseUser.uid,
+    name: cleanName,
+    displayName: cleanName,
+    email: firebaseUser.email || "",
+    role: getRole(firebaseUser.email || ""),
+    emailVerified: !!firebaseUser.emailVerified,
+  };
 }
 
 async function persistUserProfile(firebaseUser, fallbackName = "") {
@@ -56,17 +82,45 @@ async function persistUserProfile(firebaseUser, fallbackName = "") {
   await setDoc(doc(db, "users", firebaseUser.uid), payload, { merge: true });
 
   return {
-    uid: firebaseUser.uid,
-    name: cleanName,
-    displayName: cleanName,
-    email: firebaseUser.email || "",
+    ...buildBaseUser(firebaseUser, fallbackName),
     role,
-    emailVerified: !!firebaseUser.emailVerified,
   };
+}
+
+async function syncStoredUser(firebaseUser, fallbackName = "") {
+  const baseUser = buildBaseUser(firebaseUser, fallbackName);
+
+  try {
+    await persistUserProfile(firebaseUser, fallbackName);
+    const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+
+    if (!snap.exists()) {
+      return baseUser;
+    }
+
+    const data = snap.data();
+    return {
+      ...baseUser,
+      name: data.name || baseUser.name,
+      displayName: data.name || baseUser.displayName,
+      role: data.role || baseUser.role,
+      emailVerified: data.emailVerified ?? baseUser.emailVerified,
+    };
+  } catch (error) {
+    console.warn("User profile sync failed", error);
+    return baseUser;
+  }
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      console.error("Google redirect sign-in failed", error);
+      sessionStorage.removeItem(GOOGLE_REDIRECT_FLAG);
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -82,38 +136,9 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(AUTH_USER);
         return;
       }
-
-      const baseUser = {
-        uid: firebaseUser.uid,
-        name: firebaseUser.displayName || "",
-        displayName: firebaseUser.displayName || "",
-        email: firebaseUser.email || "",
-        role: getRole(firebaseUser.email || ""),
-        emailVerified: !!firebaseUser.emailVerified,
-      };
-
-      try {
-        await persistUserProfile(firebaseUser, baseUser.name);
-        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          const mergedUser = {
-            ...baseUser,
-            name: data.name || baseUser.name,
-            displayName: data.name || baseUser.displayName,
-            role: data.role || baseUser.role,
-            emailVerified: data.emailVerified ?? baseUser.emailVerified,
-          };
-          setUser(mergedUser);
-          localStorage.setItem(AUTH_USER, JSON.stringify(mergedUser));
-        } else {
-          setUser(baseUser);
-          localStorage.setItem(AUTH_USER, JSON.stringify(baseUser));
-        }
-      } catch (_) {
-        setUser(baseUser);
-        localStorage.setItem(AUTH_USER, JSON.stringify(baseUser));
-      }
+      const syncedUser = await syncStoredUser(firebaseUser, firebaseUser.displayName || "");
+      setUser(syncedUser);
+      localStorage.setItem(AUTH_USER, JSON.stringify(syncedUser));
     });
 
     return () => unsubscribe();
@@ -128,14 +153,12 @@ export function AuthProvider({ children }) {
         await updateProfile(credential.user, { displayName: cleanName });
       }
 
-      await persistUserProfile(credential.user, cleanName);
-      await sendEmailVerification(credential.user);
-      await signOut(auth);
-      setUser(null);
-      localStorage.removeItem(AUTH_USER);
-      return { ok: true, verificationSent: true };
+      const registeredUser = await syncStoredUser(credential.user, cleanName);
+      setUser(registeredUser);
+      localStorage.setItem(AUTH_USER, JSON.stringify(registeredUser));
+      return { ok: true };
     } catch (error) {
-      return { ok: false, error: error.message || "Registration failed." };
+      return { ok: false, error: getFriendlyAuthError(error, "Registration failed.") };
     }
   };
 
@@ -143,63 +166,24 @@ export function AuthProvider({ children }) {
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = credential.user;
-
-      if (!firebaseUser.emailVerified) {
-        await sendEmailVerification(firebaseUser).catch(() => {});
-        await signOut(auth);
-        setUser(null);
-        localStorage.removeItem(AUTH_USER);
-        return {
-          ok: false,
-          error: "Please verify your email first. A new verification email has been sent.",
-        };
-      }
-
-      let currentUser = {
-        uid: firebaseUser.uid,
-        name: firebaseUser.displayName || "",
-        displayName: firebaseUser.displayName || "",
-        email: firebaseUser.email || email,
-        role: getRole(firebaseUser.email || email),
-        emailVerified: !!firebaseUser.emailVerified,
-      };
-
-      try {
-        await persistUserProfile(firebaseUser, currentUser.name);
-        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          currentUser = {
-            ...currentUser,
-            name: data.name || currentUser.name,
-            displayName: data.name || currentUser.displayName,
-            role: data.role || currentUser.role,
-            emailVerified: data.emailVerified ?? currentUser.emailVerified,
-          };
-        }
-      } catch (_) {
-        // ignore
-      }
+      const currentUser = await syncStoredUser(firebaseUser, firebaseUser.displayName || "");
 
       setUser(currentUser);
       localStorage.setItem(AUTH_USER, JSON.stringify(currentUser));
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: error.message || "Invalid email or password." };
+      return { ok: false, error: getFriendlyAuthError(error, "Invalid email or password.") };
     }
   };
 
   const loginWithGoogle = async () => {
     try {
-      const credential = await signInWithPopup(auth, googleProvider);
-      const firebaseUser = credential.user;
-      const additionalInfo = getAdditionalUserInfo(credential);
-      const savedUser = await persistUserProfile(firebaseUser, firebaseUser.displayName || "");
-      setUser(savedUser);
-      localStorage.setItem(AUTH_USER, JSON.stringify(savedUser));
-      return { ok: true, isNewUser: !!additionalInfo?.isNewUser, user: savedUser };
+      sessionStorage.setItem(GOOGLE_REDIRECT_FLAG, "1");
+      await signInWithRedirect(auth, googleProvider);
+      return { ok: true, redirecting: true };
     } catch (error) {
-      return { ok: false, error: error.message || "Google sign-in failed." };
+      sessionStorage.removeItem(GOOGLE_REDIRECT_FLAG);
+      return { ok: false, error: getFriendlyAuthError(error, "Google sign-in failed.") };
     }
   };
 

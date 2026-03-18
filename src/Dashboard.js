@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import { loadUserHotelBookings } from "./utils/bookings";
 import { loadUserTrips, saveUserTrips } from "./utils/trips";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import { categorizeTrips } from "./utils/tripStatus";
@@ -26,6 +27,7 @@ function Dashboard() {
   const displayName =
     user?.displayName || user?.name || user?.email?.split("@")[0] || "Traveler";
   const [trips, setTrips] = useState([]);
+  const [hotelBookings, setHotelBookings] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [editingTripId, setEditingTripId] = useState("");
   const [status, setStatus] = useState("");
@@ -43,13 +45,17 @@ function Dashboard() {
     let ignore = false;
 
     const syncData = async () => {
-      const [savedTrips, savedWishlist] = await Promise.all([
+      const [savedTrips, savedWishlist, savedHotelBookings] = await Promise.all([
         loadUserTrips(user?.uid),
         loadUserWishlist(user?.uid),
+        loadUserHotelBookings(user?.uid),
       ]);
       if (ignore) return;
       setTrips(savedTrips);
       setWishlist(savedWishlist);
+      setHotelBookings(
+        [...savedHotelBookings].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+      );
     };
 
     syncData();
@@ -238,6 +244,10 @@ function Dashboard() {
           <h3>{wishlist.length}</h3>
           <p>Wishlist Items</p>
         </article>
+        <article>
+          <h3>{hotelBookings.length}</h3>
+          <p>Hotel Bookings</p>
+        </article>
       </section>
 
       <section className="dashboard-grid">
@@ -388,6 +398,30 @@ function Dashboard() {
                     Delete
                   </button>
                 </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="dashboard-card">
+        <h2>Confirmed Hotel Bookings ({hotelBookings.length})</h2>
+        {hotelBookings.length === 0 ? (
+          <p className="dashboard-empty">No hotel bookings confirmed yet.</p>
+        ) : (
+          <div className="dashboard-trip-list">
+            {hotelBookings.map((booking) => (
+              <article key={booking.bookingReference || booking.bookingId} className="dashboard-trip-item">
+                <h3>{booking.hotelName}</h3>
+                <p>{booking.destination}</p>
+                <p>
+                  {booking.checkInDate} to {booking.checkOutDate}
+                </p>
+                <p>Guests: {booking.guests}</p>
+                <p>Total: ${booking.totalPrice || 0}</p>
+                <p>Payment: {booking.paymentMethod}</p>
+                <p>Status: {booking.paymentStatus} · {booking.bookingStatus}</p>
+                <p>Reference: {booking.bookingReference}</p>
               </article>
             ))}
           </div>

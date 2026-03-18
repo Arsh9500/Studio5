@@ -1,11 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import { useItinerary } from "./context/ItineraryContext";
+import { destinations } from "./data/destinations";
 import { loadUserTrips, saveUserTrips } from "./utils/trips";
 import "./Planner.css";
 
+const WEATHER_API_BASE = "https://api.openweathermap.org/data/2.5/weather";
+const DEFAULT_WEATHER_API_KEY = "b0de676fca853faaf818b515e2940193"; // demo only
+
+function normalizeDestinationQuery(rawDestination) {
+  if (!rawDestination) return "";
+  return rawDestination.split(",")[0].trim();
+}
+
 function Planner() {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { itineraryDestination, setItineraryDestination } = useItinerary();
   const location = useLocation();
   const suggestedDestination = location.state?.add || "";
 
@@ -19,6 +31,9 @@ function Planner() {
     estimatedCost: "",
     notes: "",
   });
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherResult, setWeatherResult] = useState(null);
+  const [weatherError, setWeatherError] = useState("");
 
   useEffect(() => {
     let ignore = false;
@@ -79,6 +94,80 @@ function Planner() {
     return list;
   }, [todayString, upcomingTrips]);
 
+  const recommendedHotels = useMemo(() => {
+    const destinationQuery = normalizeDestinationQuery(itineraryDestination);
+    if (!destinationQuery) return [];
+
+    // Keep recommendations simple and easy to understand.
+    const normalizedQuery = destinationQuery.toLowerCase();
+    const byCity = destinations.filter((item) => {
+      const city = item.city.toLowerCase();
+      const country = item.country.toLowerCase();
+      const region = (item.region || "").toLowerCase();
+      return (
+        city.includes(normalizedQuery) ||
+        normalizedQuery.includes(city) ||
+        country.includes(normalizedQuery) ||
+        region.includes(normalizedQuery)
+      );
+    });
+    const source = byCity.length ? byCity : destinations.slice(0, 3);
+
+    return source.slice(0, 3).map((item, index) => ({
+      id: item.id,
+      name: `${item.city} ${["Central Hotel", "Grand Suites", "Harbour Lodge"][index % 3]}`,
+      area: `${item.city}, ${item.country}`,
+    }));
+  }, [itineraryDestination]);
+
+  useEffect(() => {
+    const destinationQuery = normalizeDestinationQuery(itineraryDestination);
+    if (!destinationQuery) {
+      setWeatherResult(null);
+      setWeatherError("");
+      setWeatherLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchWeather = async () => {
+      setWeatherLoading(true);
+      setWeatherError("");
+
+      let apiKey = process.env.REACT_APP_WEATHER_API_KEY;
+      if (!apiKey) apiKey = DEFAULT_WEATHER_API_KEY;
+
+      try {
+        const response = await fetch(
+          `${WEATHER_API_BASE}?q=${encodeURIComponent(destinationQuery)}&units=metric&appid=${apiKey}`
+        );
+        const data = await response.json();
+        if (cancelled) return;
+
+        if (response.ok) {
+          setWeatherResult(data);
+        } else {
+          setWeatherResult(null);
+          setWeatherError(data.message || "Unable to load weather right now.");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setWeatherResult(null);
+          setWeatherError(error.message || "Unable to load weather right now.");
+        }
+      } finally {
+        if (!cancelled) setWeatherLoading(false);
+      }
+    };
+
+    fetchWeather();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [itineraryDestination]);
+
   const resetForm = () => {
     setForm({
       destination: "",
@@ -119,6 +208,7 @@ function Planner() {
         trip.id === editingTripId ? { ...trip, ...normalized } : trip
       );
       saveTripsToDb(nextTrips);
+      setItineraryDestination(normalized.destination);
       resetForm();
       return;
     }
@@ -129,11 +219,13 @@ function Planner() {
       createdAt: new Date().toISOString(),
     };
     saveTripsToDb([...trips, newTrip]);
+    setItineraryDestination(normalized.destination);
     resetForm();
   };
 
   const onEdit = (trip) => {
     setEditingTripId(trip.id);
+    setItineraryDestination(trip.destination || "");
     setForm({
       destination: trip.destination || "",
       startDate: trip.startDate || "",
@@ -148,6 +240,16 @@ function Planner() {
     const nextTrips = trips.filter((trip) => trip.id !== tripId);
     saveTripsToDb(nextTrips);
     if (editingTripId === tripId) resetForm();
+  };
+
+  const handleBookHotel = () => {
+    if (!itineraryDestination.trim()) return;
+    navigate("/hotels", { state: { destination: itineraryDestination } });
+  };
+
+  const handleOpenWeatherPage = () => {
+    if (!itineraryDestination.trim()) return;
+    navigate("/weather", { state: { destination: itineraryDestination } });
   };
 
   return (
@@ -247,6 +349,45 @@ function Planner() {
           </ul>
         )}
       </section>
+
+      {itineraryDestination && (
+        <section className="planner-notifications-card">
+          <h2>Smart Recommendations for {itineraryDestination}</h2>
+          <p className="planner-empty">Book Hotel: ready to find stays that match this itinerary destination.</p>
+
+          {recommendedHotels.length > 0 && (
+            <div className="planner-trip-list">
+              {recommendedHotels.map((hotel) => (
+                <article key={hotel.id} className="planner-trip-item">
+                  <h3>{hotel.name}</h3>
+                  <p>{hotel.area}</p>
+                </article>
+              ))}
+            </div>
+          )}
+
+          <div className="planner-smart-weather">
+            <h3>Weather</h3>
+            {weatherLoading && <p className="planner-empty">Loading weather...</p>}
+            {!weatherLoading && weatherError && <p className="planner-empty">{weatherError}</p>}
+            {!weatherLoading && weatherResult && (
+              <p>
+                {weatherResult.name}: {Math.round(weatherResult.main?.temp || 0)}degC,{" "}
+                {weatherResult.weather?.[0]?.description || "Current conditions available"}
+              </p>
+            )}
+          </div>
+
+          <div className="planner-form-actions">
+            <button type="button" onClick={handleBookHotel}>
+              Book Hotel
+            </button>
+            <button type="button" className="planner-cancel-btn" onClick={handleOpenWeatherPage}>
+              Open Weather Page
+            </button>
+          </div>
+        </section>
+      )}
 
       <Link to="/" className="planner-back-link">
         Back to Home
