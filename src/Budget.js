@@ -1,27 +1,48 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { destinations, getDestination } from "./data/destinations";
 import Logo from "./components/Logo";
+import { requestBudgetPlan } from "./services/budgetAiService";
 import "./Budget.css";
 
 const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const GEO_DB_URL = "https://wft-geo-db.p.rapidapi.com/v1/geo/cities";
+const GEO_DB_HOST = "wft-geo-db.p.rapidapi.com";
+const GEO_DB_KEY = process.env.REACT_APP_GEODB_API_KEY || "";
+const REST_COUNTRIES_URL = "https://restcountries.com/v3.1/name";
+const USD_RATES_URL = "https://open.er-api.com/v6/latest/USD";
+
+let cachedUsdRates = null;
 
 function safeNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildHotelPayload({ budget, pastChoices }) {
-  const payload = {
-    budget: budget || 0,
-    location_preference: "city centre",
-    amenities: [],
-  };
-  if (pastChoices && pastChoices.length) {
-    payload.past_choices = pastChoices;
+function formatCurrencyAmount(amount, currencyCode) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 0,
+    }).format(safeNumber(amount));
+  } catch {
+    return `${safeNumber(amount).toFixed(0)} ${currencyCode}`;
   }
-  return payload;
+}
+
+function pickCurrencyFromCountryPayload(payload) {
+  const country = Array.isArray(payload) ? payload[0] : null;
+  if (!country || !country.currencies || typeof country.currencies !== "object") {
+    return null;
+  }
+
+  const [code, details] = Object.entries(country.currencies)[0] || [];
+  if (!code) return null;
+
+  return {
+    code,
+    name: details?.name || code,
+  };
 }
 
 function Budget() {
@@ -33,48 +54,101 @@ function Budget() {
   const [days, setDays] = useState(state.days || 1);
 
   const [destinationSearch, setDestinationSearch] = useState(state.destinationSearch || "");
-  const [destinationId, setDestinationId] = useState(state.destinationId || "");
-  const [destinationCosts, setDestinationCosts] = useState({
-    foodPerDay: 0,
-    localTransportPerDay: 0,
-    activitiesPerDay: 0,
-    hotelPerNight: 0,
-  });
-
   const [selectedLocation, setSelectedLocation] = useState(state.selectedLocation || null);
+  const [saveMessage, setSaveMessage] = useState("");
+
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
 
-  const [hotelSearchResults, setHotelSearchResults] = useState([]);
-  const [hotelSearchLoading, setHotelSearchLoading] = useState(false);
-  const [hotelSearchStatus, setHotelSearchStatus] = useState("");
+  const [budgetAiLoading, setBudgetAiLoading] = useState(false);
+  const [budgetAiError, setBudgetAiError] = useState("");
+  const [budgetAiResult, setBudgetAiResult] = useState(null);
+  const [currencyInfo, setCurrencyInfo] = useState(null);
+  const [currencyLoading, setCurrencyLoading] = useState(false);
+  const [currencyError, setCurrencyError] = useState("");
 
-  const [hotelName, setHotelName] = useState(state.hotelName || "");
-  const [hotelPricePerNight, setHotelPricePerNight] = useState(state.hotelPricePerNight || "");
+  const hasRequiredInput =
+    safeNumber(totalBudget) > 0 && safeNumber(days) > 0 && (selectedLocation || destinationSearch.trim());
 
-  const destination = useMemo(() => getDestination(destinationId), [destinationId]);
-
-  const findDestinationIdFromLocation = (locName) => {
-    const normalized = (locName || "").trim().toLowerCase();
-    if (!normalized) return "";
-    const match = destinations.find(
-      (d) =>
-        d.city.toLowerCase() === normalized ||
-        d.country.toLowerCase() === normalized ||
-        d.name.toLowerCase() === normalized
-    );
-    return match?.id || "";
-  };
+  const nights = Math.max(0, safeNumber(days));
 
   const selectLocation = (loc) => {
     setSelectedLocation(loc);
     setDestinationSearch(loc.name);
     setLocationSuggestions([]);
     setLocationStatus("");
+  };
 
-    const matchId = findDestinationIdFromLocation(loc.name);
-    setDestinationId(matchId);
+  const normalizeGeoDbLocations = (data, fallbackName) => {
+    return (data?.data || [])
+      .map((item) => ({
+        id: String(item.id),
+        name: item.city || item.name || fallbackName,
+        country: item.country || "",
+        region: item.region || item.country || "",
+        lat: Number(item.latitude),
+        lon: Number(item.longitude),
+      }))
+      .filter((item) => item.name && Number.isFinite(item.lat) && Number.isFinite(item.lon));
+  };
+
+  const normalizeNominatimLocations = (data, fallbackName) => {
+    return (Array.isArray(data) ? data : [])
+      .map((item) => ({
+        id: `${item.osm_type}-${item.osm_id}`,
+        name:
+          item.address?.city ||
+          item.address?.town ||
+          item.address?.village ||
+          item.address?.municipality ||
+          item.address?.state ||
+          item.address?.county ||
+          item.address?.country ||
+          (item.display_name || fallbackName).split(",")[0],
+        country: item.address?.country || "",
+        region: item.address?.state || item.address?.region || "",
+        lat: Number(item.lat),
+        lon: Number(item.lon),
+      }))
+      .filter((item) => item.name && Number.isFinite(item.lat) && Number.isFinite(item.lon));
+  };
+
+  const fetchNominatimSuggestions = async (query, signal) => {
+    const resp = await fetch(
+      `${NOMINATIM_SEARCH_URL}?q=${encodeURIComponent(query)}&format=jsonv2&addressdetails=1&limit=8`,
+      {
+        signal,
+        headers: { Accept: "application/json" },
+      }
+    );
+
+    if (!resp.ok) {
+      throw new Error(`Location search failed (${resp.status})`);
+    }
+
+    const data = await resp.json();
+    return normalizeNominatimLocations(data, query);
+  };
+
+  const fetchGeoDbSuggestions = async (query, signal) => {
+    const resp = await fetch(
+      `${GEO_DB_URL}?namePrefix=${encodeURIComponent(query)}&limit=8&types=CITY`,
+      {
+        signal,
+        headers: {
+          "X-RapidAPI-Key": GEO_DB_KEY,
+          "X-RapidAPI-Host": GEO_DB_HOST,
+        },
+      }
+    );
+
+    if (!resp.ok) {
+      throw new Error(`Location search failed (${resp.status})`);
+    }
+
+    const data = await resp.json();
+    return normalizeGeoDbLocations(data, query);
   };
 
   const fetchLocationSuggestions = async (query, signal) => {
@@ -88,189 +162,37 @@ function Budget() {
     setLocationStatus("");
 
     try {
-      const resp = await fetch(
-        `${NOMINATIM_SEARCH_URL}?q=${encodeURIComponent(query)}&format=jsonv2&addressdetails=1&limit=6`,
-        {
-          signal,
-          headers: { Accept: "application/json" },
-        }
-      );
+      let locations = [];
 
-      if (!resp.ok) {
-        throw new Error(`Location search failed (${resp.status})`);
+      if (GEO_DB_KEY) {
+        try {
+          locations = await fetchGeoDbSuggestions(query, signal);
+        } catch (err) {
+          console.warn("GeoDB lookup failed, using Nominatim fallback", err);
+        }
       }
 
-      const data = await resp.json();
-      const locations = (Array.isArray(data) ? data : [])
-        .filter((item) =>
-          ["city", "town", "village", "municipality", "county", "country"].includes(item.type)
-        )
-        .map((item) => ({
-          id: `${item.osm_type}-${item.osm_id}`,
-          name:
-            item.address?.city ||
-            item.address?.town ||
-            item.address?.village ||
-            item.address?.county ||
-            item.address?.country ||
-            item.display_name ||
-            query,
-          country: item.address?.country || "",
-          region: item.address?.state || item.address?.region || "",
-          lat: Number(item.lat),
-          lon: Number(item.lon),
-        }))
-        .filter((item) => item.name && Number.isFinite(item.lat) && Number.isFinite(item.lon));
+      // Always fall back to Nominatim if GeoDB key is missing or gives no city matches.
+      if (!locations.length) {
+        locations = await fetchNominatimSuggestions(query, signal);
+      }
 
-      setLocationSuggestions(locations);
-      setLocationStatus(locations.length ? "" : "No matching locations found.");
+      if (locations.length) {
+        setLocationSuggestions(locations.slice(0, 8));
+        setLocationStatus("");
+      } else {
+        setLocationSuggestions([]);
+        setLocationStatus("No matching locations found. Try full city names, e.g. Delhi, Auckland, Paris.");
+      }
     } catch (err) {
       if (err.name === "AbortError") return;
       console.error(err);
-      setLocationStatus("Unable to search locations. Check your connection.");
+      setLocationStatus("Unable to search locations right now. Please try again.");
       setLocationSuggestions([]);
     } finally {
       setLocationLoading(false);
     }
   };
-
-  const fetchHotelsForLocation = async (loc) => {
-    if (!loc) {
-      setHotelSearchResults([]);
-      setHotelSearchStatus("");
-      return;
-    }
-
-    setHotelSearchLoading(true);
-    setHotelSearchStatus("");
-
-    const overpassQuery = `
-[out:json][timeout:25];
-(
-  node["tourism"~"hotel|guest_house|hostel|motel|apartment"](around:15000,${loc.lat},${loc.lon});
-  way["tourism"~"hotel|guest_house|hostel|motel|apartment"](around:15000,${loc.lat},${loc.lon});
-  relation["tourism"~"hotel|guest_house|hostel|motel|apartment"](around:15000,${loc.lat},${loc.lon});
-);
-out center tags 24;
-    `.trim();
-
-    try {
-      const resp = await fetch(OVERPASS_URL, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "text/plain;charset=UTF-8",
-        },
-        body: overpassQuery,
-      });
-
-      if (!resp.ok) {
-        throw new Error(`Hotels API request failed (${resp.status})`);
-      }
-
-      const payload = await resp.json();
-      const elements = Array.isArray(payload?.elements) ? payload.elements : [];
-      const hotels = elements.slice(0, 16).map((item, index) => {
-        const tags = item.tags || {};
-        const name = tags.name || `Hotel ${index + 1}`;
-        const city = tags["addr:city"] || tags["addr:town"] || tags["addr:village"] || loc.name;
-        const country = tags["addr:country"] || loc.country || "";
-        const address = [tags["addr:street"], tags["addr:housenumber"], city, country]
-          .filter(Boolean)
-          .join(", ");
-
-        return {
-          id: `${item.type}-${item.id}`,
-          name,
-          city,
-          country,
-          address,
-          lat: item.lat || item.center?.lat || loc.lat,
-          lon: item.lon || item.center?.lon || loc.lon,
-        };
-      });
-
-      setHotelSearchResults(hotels);
-      setHotelSearchStatus(hotels.length ? "" : "No hotels found for this location.");
-    } catch (err) {
-      console.error(err);
-      setHotelSearchStatus("Unable to fetch hotels for this location.");
-      setHotelSearchResults([]);
-    } finally {
-      setHotelSearchLoading(false);
-    }
-  };
-
-  const fetchHotelPriceForName = async (name) => {
-    if (!name) return;
-    setHotelSearchStatus("Looking up hotel price...");
-
-    const payload = buildHotelPayload({
-      budget: totalBudget,
-      pastChoices: [name],
-    });
-
-    try {
-      const resp = await fetch("http://localhost:5000/recommend-hotels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!resp.ok) {
-        throw new Error(`Server responded with ${resp.status}`);
-      }
-
-      const data = await resp.json();
-      const match = Array.isArray(data?.recommendations)
-        ? data.recommendations.find((item) => item.hotel_name === name)
-        : null;
-
-      if (match) {
-        setHotelPricePerNight(match.price_per_night);
-        setHotelSearchStatus("");
-      } else {
-        const fallback = destination?.estimatedCosts?.hotelPerNight || 0;
-        setHotelPricePerNight(fallback);
-        setHotelSearchStatus(
-          fallback
-            ? `Hotel pricing not available; using destination average ($${fallback.toFixed(0)}).`
-            : "Hotel pricing not available; please enter it manually."
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      const fallback = destination?.estimatedCosts?.hotelPerNight || 0;
-      setHotelPricePerNight(fallback);
-      setHotelSearchStatus(
-        fallback
-          ? `Unable to fetch hotel pricing; using destination average ($${fallback.toFixed(0)}).`
-          : "Unable to fetch hotel pricing. Please enter it manually."
-      );
-    }
-  };
-
-  useEffect(() => {
-    if (!destinationId) return;
-
-    const dest = getDestination(destinationId);
-    if (!dest) {
-      setDestinationCosts({ foodPerDay: 0, localTransportPerDay: 0, activitiesPerDay: 0 });
-      return;
-    }
-
-    setDestinationCosts({
-      foodPerDay: dest.estimatedCosts.foodPerDay || 0,
-      localTransportPerDay: dest.estimatedCosts.localTransportPerDay || 0,
-      activitiesPerDay: dest.estimatedCosts.activitiesPerDay || 0,
-      hotelPerNight: dest.estimatedCosts.hotelPerNight || 0,
-    });
-  }, [destinationId]);
-
-  useEffect(() => {
-    if (!destination) return;
-    setDestinationSearch(destination.name);
-  }, [destination]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -285,44 +207,164 @@ out center tags 24;
   }, [destinationSearch]);
 
   useEffect(() => {
-    fetchHotelsForLocation(selectedLocation);
-  }, [selectedLocation]);
+    setBudgetAiResult(null);
+    setBudgetAiError("");
+  }, [destinationSearch, selectedLocation, days, totalBudget]);
 
   useEffect(() => {
-    if (!selectedLocation) return;
-    const matchId = findDestinationIdFromLocation(selectedLocation.name);
-    setDestinationId(matchId);
-  }, [selectedLocation]);
+    const countryName = selectedLocation?.country;
+    if (!countryName) {
+      setCurrencyInfo(null);
+      setCurrencyError("");
+      setCurrencyLoading(false);
+      return;
+    }
 
-  useEffect(() => {
-    if (!hotelName) return;
-    fetchHotelPriceForName(hotelName);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelName, totalBudget]);
+    const controller = new AbortController();
 
-  const handleHotelSearchSelect = (hotel) => {
-    setHotelName(hotel.name);
+    const resolveLocalCurrency = async () => {
+      setCurrencyLoading(true);
+      setCurrencyError("");
 
-    // If the hotel API cannot provide a price, use the destination's typical nightly rate.
-    const fallbackPrice =
-      destinationCosts.hotelPerNight || destination?.estimatedCosts?.hotelPerNight || 0;
-    setHotelPricePerNight(fallbackPrice);
-    setHotelSearchStatus(
-      fallbackPrice
-        ? `Estimated nightly rate set from destination averages ($${fallbackPrice.toFixed(0)}).`
-        : "Select a hotel to set a price or enter it manually."
-    );
+      try {
+        let countryPayload = null;
+        const fullTextResponse = await fetch(
+          `${REST_COUNTRIES_URL}/${encodeURIComponent(countryName)}?fullText=true&fields=name,currencies`,
+          { signal: controller.signal }
+        );
+
+        if (fullTextResponse.ok) {
+          countryPayload = await fullTextResponse.json();
+        } else {
+          const fallbackResponse = await fetch(
+            `${REST_COUNTRIES_URL}/${encodeURIComponent(countryName)}?fields=name,currencies`,
+            { signal: controller.signal }
+          );
+          if (fallbackResponse.ok) {
+            countryPayload = await fallbackResponse.json();
+          }
+        }
+
+        const currency = pickCurrencyFromCountryPayload(countryPayload);
+        if (!currency?.code) {
+          setCurrencyInfo(null);
+          setCurrencyError("Could not detect local currency for this destination.");
+          return;
+        }
+
+        if (currency.code === "USD") {
+          setCurrencyInfo({ ...currency, rateFromUsd: 1 });
+          return;
+        }
+
+        if (!cachedUsdRates) {
+          const ratesResponse = await fetch(USD_RATES_URL, { signal: controller.signal });
+          if (!ratesResponse.ok) {
+            throw new Error("Failed to fetch exchange rates");
+          }
+          const ratesPayload = await ratesResponse.json();
+          cachedUsdRates = ratesPayload?.rates || null;
+        }
+
+        const rate = cachedUsdRates?.[currency.code];
+        if (!rate || !Number.isFinite(rate)) {
+          setCurrencyInfo(null);
+          setCurrencyError(`Exchange rate unavailable for ${currency.code}.`);
+          return;
+        }
+
+        setCurrencyInfo({ ...currency, rateFromUsd: rate });
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        setCurrencyInfo(null);
+        setCurrencyError("Unable to load local currency conversion right now.");
+      } finally {
+        setCurrencyLoading(false);
+      }
+    };
+
+    resolveLocalCurrency();
+
+    return () => controller.abort();
+  }, [selectedLocation?.country]);
+
+  const handleGenerateAiBudget = async () => {
+    const destination = selectedLocation?.name || destinationSearch.trim();
+    if (!destination || safeNumber(days) <= 0 || safeNumber(totalBudget) <= 0) {
+      setBudgetAiError("Enter destination, days, and total budget before generating AI budget.");
+      return;
+    }
+
+    setBudgetAiLoading(true);
+    setBudgetAiError("");
+
+    try {
+      const data = await requestBudgetPlan({
+        destination,
+        days: safeNumber(days),
+        totalBudget: safeNumber(totalBudget),
+        currency: "USD",
+      });
+      setBudgetAiResult(data);
+    } catch (err) {
+      setBudgetAiError(err.message || "Unable to generate AI budget right now.");
+      setBudgetAiResult(null);
+    } finally {
+      setBudgetAiLoading(false);
+    }
   };
 
-  const nights = Math.max(0, safeNumber(days));
-  const hotelCost = safeNumber(hotelPricePerNight) * nights;
-  const foodCost = safeNumber(destinationCosts.foodPerDay) * nights;
-  const transportCost = safeNumber(destinationCosts.localTransportPerDay) * nights;
-  const activitiesCost = safeNumber(destinationCosts.activitiesPerDay) * nights;
-  const estimatedTotal = hotelCost + foodCost + transportCost + activitiesCost;
-  const remaining = safeNumber(totalBudget) - estimatedTotal;
+  const handleSaveToPlanner = () => {
+    if (!budgetAiResult) {
+      setSaveMessage("Generate AI budget plan first, then save to planner.");
+      setTimeout(() => setSaveMessage(""), 3500);
+      return;
+    }
 
-  const showOverBudget = safeNumber(totalBudget) > 0 && estimatedTotal > safeNumber(totalBudget);
+    const ai = budgetAiResult.breakdown || {};
+    const trip = {
+      city: selectedLocation?.name || destinationSearch || "",
+      budget: safeNumber(totalBudget),
+      days: nights,
+      hotelCost: safeNumber(ai.hotel).toFixed(0),
+      foodCost: safeNumber(ai.food).toFixed(0),
+      transportCost: safeNumber(ai.transport).toFixed(0),
+      activitiesCost: safeNumber(ai.activities).toFixed(0),
+      miscCost: safeNumber(ai.misc).toFixed(0),
+      estimatedTotal: safeNumber(ai.total).toFixed(0),
+      remaining: (safeNumber(totalBudget) - safeNumber(ai.total)).toFixed(0),
+      destinationSummary: budgetAiResult.destinationSummary || "",
+      aiTips: Array.isArray(budgetAiResult.tips) ? budgetAiResult.tips : [],
+      timestamp: Date.now(),
+      source: "ai",
+    };
+
+    const saved = JSON.parse(localStorage.getItem("savedTrips") || "[]");
+    saved.push(trip);
+    localStorage.setItem("savedTrips", JSON.stringify(saved));
+    setSaveMessage("AI trip budget saved to planner!");
+    setTimeout(() => setSaveMessage(""), 3500);
+  };
+
+  const aiBreakdown = budgetAiResult?.breakdown || {};
+  const aiRemaining = safeNumber(totalBudget) - safeNumber(aiBreakdown.total);
+  const showLocalCurrency = Boolean(currencyInfo?.code && Number.isFinite(currencyInfo?.rateFromUsd));
+
+  const renderDualAmount = (usdAmount) => {
+    const usd = formatCurrencyAmount(usdAmount, "USD");
+    if (!showLocalCurrency) {
+      return <span>{usd}</span>;
+    }
+
+    const localValue = safeNumber(usdAmount) * safeNumber(currencyInfo.rateFromUsd);
+    const local = formatCurrencyAmount(localValue, currencyInfo.code);
+    return (
+      <span className="budget-dual-value">
+        <strong>{usd}</strong>
+        <em>{local}</em>
+      </span>
+    );
+  };
 
   return (
     <div className="budget-page">
@@ -341,17 +383,18 @@ out center tags 24;
       <main className="budget-main">
         <section className="budget-intro">
           <h1>Budget Planner</h1>
-          <p>
-            Enter your trip details and see a breakdown of estimated expenses based on your destination and
-            hotel choices.
-          </p>
+          <p>Generate an AI budget plan by destination, trip days, and total budget.</p>
           <p className="budget-selected">
-            {destination ? (
+            {selectedLocation ? (
               <>
-                Selected destination: <strong>{destination.name}</strong>
+                Selected location: <strong>{selectedLocation.name}</strong>
+              </>
+            ) : destinationSearch.trim() ? (
+              <>
+                Selected location: <strong>{destinationSearch}</strong>
               </>
             ) : (
-              "Select a destination to auto-populate food, transport, and activity cost estimates."
+              "Select a destination to create an AI budget plan."
             )}
           </p>
         </section>
@@ -392,12 +435,8 @@ out center tags 24;
                   setDestinationSearch(e.target.value);
                   setLocationSuggestions([]);
                   setSelectedLocation(null);
-                  setHotelSearchResults([]);
-                  setHotelName("");
-                  setHotelPricePerNight("");
-                  setHotelSearchStatus("");
                 }}
-                placeholder="Type a city or country (e.g. Paris)"
+                placeholder="Type a city or country (e.g. Delhi)"
                 autoComplete="off"
               />
 
@@ -408,11 +447,7 @@ out center tags 24;
                 <ul className="budget-suggestions">
                   {locationSuggestions.map((loc) => (
                     <li key={loc.id}>
-                      <button
-                        type="button"
-                        className="budget-suggestion-btn"
-                        onClick={() => selectLocation(loc)}
-                      >
+                      <button type="button" className="budget-suggestion-btn" onClick={() => selectLocation(loc)}>
                         {loc.name}
                         {loc.region ? `, ${loc.region}` : ""}
                         {loc.country ? `, ${loc.country}` : ""}
@@ -421,113 +456,101 @@ out center tags 24;
                   ))}
                 </ul>
               )}
-
-              {selectedLocation && (
-                <p className="budget-help-text">
-                  Searching hotels near <strong>{selectedLocation.name}</strong>
-                  {selectedLocation.region ? `, ${selectedLocation.region}` : ""}
-                  {selectedLocation.country ? `, ${selectedLocation.country}` : ""}
-                  {" • "}
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                      selectedLocation.name
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View on map
-                  </a>
-                </p>
-              )}
             </div>
-
-            <div className="budget-field">
-              <label>Hotels in area</label>
-              {hotelSearchLoading && <p className="budget-help-text">Fetching hotels…</p>}
-              {hotelSearchStatus && <p className="budget-help-text">{hotelSearchStatus}</p>}
-              {hotelSearchResults.length > 0 && (
-                <div className="budget-hotel-list">
-                  {hotelSearchResults.map((hotel) => (
-                    <button
-                      key={hotel.id}
-                      type="button"
-                      className={`budget-hotel-item ${hotelName === hotel.name ? "selected" : ""}`}
-                      onClick={() => handleHotelSearchSelect(hotel)}
-                    >
-                      <span className="budget-hotel-title">{hotel.name}</span>
-                      <span className="budget-hotel-meta">
-                        {hotel.address || `${hotel.city}, ${hotel.country}`}
-                      </span>
-                      <span className="budget-hotel-action">
-                        {hotelName === hotel.name ? "Selected" : "Select"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <p className="budget-help-text">
-                Selecting a hotel will fetch a nightly price from the hotel API (if available).
-              </p>
-            </div>
-
-            <div className="budget-field">
-              <label htmlFor="budget-hotel-price">Hotel price per night</label>
-              <input
-                id="budget-hotel-price"
-                type="number"
-                min="0"
-                placeholder="Hotel price per night"
-                value={hotelPricePerNight}
-                onChange={(e) => setHotelPricePerNight(e.target.value)}
-              />
-            </div>
-
           </div>
         </section>
 
         <section className="budget-summary-card">
-          <h2>Budget Breakdown</h2>
-          <div className="budget-breakdown">
-            <div className="budget-row">
-              <span>Hotel ({nights} nights)</span>
-              <span>${hotelCost.toFixed(0)}</span>
-            </div>
-            <div className="budget-row">
-              <span>Food ({nights} days)</span>
-              <span>${foodCost.toFixed(0)}</span>
-            </div>
-            <div className="budget-row">
-              <span>Transport ({nights} days)</span>
-              <span>${transportCost.toFixed(0)}</span>
-            </div>
-            <div className="budget-row">
-              <span>Activities ({nights} days)</span>
-              <span>${activitiesCost.toFixed(0)}</span>
-            </div>
-            <div className="budget-divider" />
-            <div className="budget-row budget-total">
-              <span>Total estimated cost</span>
-              <span>${estimatedTotal.toFixed(0)}</span>
-            </div>
-            <div className="budget-row budget-remaining">
-              <span>Remaining budget</span>
-              <span>${remaining.toFixed(0)}</span>
-            </div>
-          </div>
+          <h2>AI Budget Plan</h2>
 
-          {showOverBudget && (
-            <div className="budget-warning">
-              <strong>Over budget!</strong> Try a cheaper hotel, reduce the number of days, or choose fewer activities.
-            </div>
+          {!hasRequiredInput && (
+            <p className="budget-help-text">
+              Enter destination, number of days, and total budget, then click Generate AI budget plan.
+            </p>
           )}
 
           <div className="budget-actions">
             <button type="button" onClick={() => navigate(-1)}>
               Back
             </button>
-            <Link to="/planner" className="budget-secondary">
+            <button type="button" className="budget-secondary" onClick={handleSaveToPlanner}>
               Save to Planner
-            </Link>
+            </button>
+            <button
+              type="button"
+              className="budget-ai-btn"
+              onClick={handleGenerateAiBudget}
+              disabled={budgetAiLoading || !hasRequiredInput}
+            >
+              {budgetAiLoading ? "Generating AI budget..." : "Generate AI budget plan"}
+            </button>
+          </div>
+
+          {saveMessage && <p className="budget-save-success">{saveMessage}</p>}
+
+          <div className="budget-ai-panel">
+            <h3>AI Budget Breakdown (Groq)</h3>
+            {currencyLoading && <p className="budget-help-text">Loading local currency conversion…</p>}
+            {!currencyLoading && showLocalCurrency && (
+              <p className="budget-help-text">
+                Showing amounts in USD and {currencyInfo.code} ({currencyInfo.name}).
+              </p>
+            )}
+            {!currencyLoading && currencyError && <p className="budget-help-text">{currencyError}</p>}
+            {budgetAiError && <p className="budget-ai-error">{budgetAiError}</p>}
+
+            {!budgetAiError && !budgetAiResult && (
+              <p className="budget-help-text">
+                AI will generate destination-specific cost allocation and practical local tips.
+              </p>
+            )}
+
+            {budgetAiResult && (
+              <>
+                {budgetAiResult.destinationSummary && (
+                  <p className="budget-ai-summary">{budgetAiResult.destinationSummary}</p>
+                )}
+                <div className="budget-breakdown budget-ai-breakdown">
+                  <div className="budget-row">
+                    <span>Hotel</span>
+                    {renderDualAmount(aiBreakdown.hotel || 0)}
+                  </div>
+                  <div className="budget-row">
+                    <span>Food</span>
+                    {renderDualAmount(aiBreakdown.food || 0)}
+                  </div>
+                  <div className="budget-row">
+                    <span>Transport</span>
+                    {renderDualAmount(aiBreakdown.transport || 0)}
+                  </div>
+                  <div className="budget-row">
+                    <span>Activities</span>
+                    {renderDualAmount(aiBreakdown.activities || 0)}
+                  </div>
+                  <div className="budget-row">
+                    <span>Misc</span>
+                    {renderDualAmount(aiBreakdown.misc || 0)}
+                  </div>
+                  <div className="budget-divider" />
+                  <div className="budget-row budget-total">
+                    <span>AI total</span>
+                    {renderDualAmount(aiBreakdown.total || 0)}
+                  </div>
+                  <div className="budget-row budget-remaining">
+                    <span>Remaining budget</span>
+                    {renderDualAmount(aiRemaining)}
+                  </div>
+                </div>
+
+                {Array.isArray(budgetAiResult.tips) && budgetAiResult.tips.length > 0 && (
+                  <ul className="budget-ai-tips">
+                    {budgetAiResult.tips.map((tip, index) => (
+                      <li key={`ai-tip-${index}`}>{tip}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
           </div>
         </section>
       </main>
