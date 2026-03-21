@@ -19,6 +19,19 @@ function getWeatherRecommendation(result) {
     return {
       title: "Great day for outdoors",
       tip: `Sunny in ${cityName}. Good time for beach visits, parks, and walking tours.`,
+      activities: [
+        "Visit local beaches or waterfront areas",
+        "Go sightseeing and explore landmarks",
+        "Hiking in nearby trails or parks",
+        "Outdoor photography of scenic views",
+        "Picnic in a park or garden"
+      ],
+      travelTips: [
+        "Wear sunscreen and a hat",
+        "Stay hydrated and carry water",
+        "Use comfortable walking shoes",
+        "Check for any heat advisories"
+      ]
     };
   }
 
@@ -26,6 +39,19 @@ function getWeatherRecommendation(result) {
     return {
       title: "Rainy day plan",
       tip: `Wet weather in ${cityName}. Better for indoor plans like cafes, museums, and shopping.`,
+      activities: [
+        "Visit museums and art galleries",
+        "Explore indoor cafes and restaurants",
+        "Go shopping in malls or markets",
+        "Attend cultural shows or performances",
+        "Visit historical sites with indoor exhibits"
+      ],
+      travelTips: [
+        "Carry an umbrella or raincoat",
+        "Wear waterproof shoes",
+        "Plan indoor transportation options",
+        "Check for indoor attractions opening hours"
+      ]
     };
   }
 
@@ -33,6 +59,19 @@ function getWeatherRecommendation(result) {
     return {
       title: "Snow day tip",
       tip: `Snow expected in ${cityName}. Wear warm layers and keep indoor stops in your plan.`,
+      activities: [
+        "Go skiing or snowboarding at resorts",
+        "Build snowmen or have snowball fights",
+        "Visit winter festivals or markets",
+        "Enjoy hot drinks at cozy cafes",
+        "Take winter landscape photos"
+      ],
+      travelTips: [
+        "Wear warm, layered clothing",
+        "Use snow-appropriate footwear",
+        "Check road conditions for travel",
+        "Carry hand warmers and blankets"
+      ]
     };
   }
 
@@ -40,18 +79,135 @@ function getWeatherRecommendation(result) {
     return {
       title: "Balanced day plan",
       tip: `Cloudy weather in ${cityName}. Light outdoor sightseeing should still work well.`,
+      activities: [
+        "Take a city walking tour",
+        "Practice street photography",
+        "Visit botanical gardens or parks",
+        "Explore local neighborhoods",
+        "Attend outdoor markets or fairs"
+      ],
+      travelTips: [
+        "Carry a light jacket for changing weather",
+        "Have indoor backup plans ready",
+        "Use comfortable walking shoes",
+        "Check for any fog-related travel warnings"
+      ]
     };
   }
 
   return {
     title: "Smart travel tip",
     tip: `For ${cityName}, keep one outdoor option and one indoor backup plan.`,
+    activities: [
+      "Explore local attractions",
+      "Visit nearby cafes or restaurants",
+      "Go shopping in local stores",
+      "Take a leisurely walk",
+      "Try local cuisine"
+    ],
+    travelTips: [
+      "Check weather updates regularly",
+      "Have flexible plans",
+      "Carry essentials like water and snacks",
+      "Be prepared for weather changes"
+    ]
   };
+}
+
+function extractStructuredAiSuggestions(rawText) {
+  if (!rawText || typeof rawText !== "string") {
+    return { activities: [], tips: [] };
+  }
+
+  const lines = rawText
+    .split(/\r?\n/) 
+    .map((l) => l.trim().replace(/^[-*\s]+/, ""))
+    .filter(Boolean);
+
+  const activities = [];
+  const tips = [];
+
+  lines.forEach((line) => {
+    const lower = line.toLowerCase();
+    if (lower.includes("tip") || lower.includes("sunscreen") || lower.includes("umbrella") || lower.includes("weather")) {
+      if (tips.length < 5) tips.push(line);
+    } else if (activities.length < 5) {
+      activities.push(line);
+    }
+  });
+
+  if (activities.length < 3) {
+    const fallback = lines.slice(0, 5);
+    fallback.forEach((item) => {
+      if (!activities.includes(item) && activities.length < 5) activities.push(item);
+    });
+  }
+
+  return {
+    activities: activities.slice(0, 5),
+    tips: tips.slice(0, 4),
+  };
+}
+
+function getFavoritePlacesForWeather(city, weatherMain) {
+  const normalized = (weatherMain || "").toLowerCase();
+  const inCity = city || "this city";
+
+  const rainy = ["rain", "drizzle", "thunderstorm"].includes(normalized);
+  const cold = ["snow", "mist", "fog", "haze"].includes(normalized);
+  const normalizedKey = rainy ? "rain" : cold ? "snow" : normalized;
+
+  const presets = {
+    clear: [
+      { name: `${inCity} Riverside Promenade`, address: `Waterfront district, ${inCity}` },
+      { name: `${inCity} Botanical Garden`, address: `Garden Road, ${inCity}` },
+      { name: `${inCity} Scenic Viewpoint`, address: `Hilltop lookout, ${inCity}` },
+    ],
+    rain: [
+      { name: `${inCity} National Museum`, address: `Museum quarter, ${inCity}` },
+      { name: `${inCity} Indoor Food Hall`, address: `Market street, ${inCity}` },
+      { name: `${inCity} Art Gallery`, address: `Gallery avenue, ${inCity}` },
+    ],
+    snow: [
+      { name: `${inCity} Winter Culture Museum`, address: `Old town center, ${inCity}` },
+      { name: `${inCity} Heated Observation Deck`, address: `Central tower, ${inCity}` },
+      { name: `${inCity} Cozy Cocoa Cafe`, address: `Main square, ${inCity}` },
+    ],
+    clouds: [
+      { name: `${inCity} Historic City Walk`, address: `Town center, ${inCity}` },
+      { name: `${inCity} Street Photography Route`, address: `Old quarter, ${inCity}` },
+      { name: `${inCity} Riverside Cafe`, address: `River district, ${inCity}` },
+    ],
+  };
+
+  return presets[normalizedKey] || [
+    { name: `${inCity} Top Landmark`, address: `Center, ${inCity}` },
+    { name: `${inCity} Local Market`, address: `Market District, ${inCity}` },
+    { name: `${inCity} City Museum`, address: `Museum Rd, ${inCity}` },
+  ];
+}
+
+function buildWeatherAwarePlacesMessage(city, weatherMain, temp) {
+  const normalized = (weatherMain || "").toLowerCase();
+  const tempText = Number.isFinite(temp) ? `${temp}°C` : "current weather";
+
+  if (["rain", "drizzle", "thunderstorm"].includes(normalized)) {
+    return `Indoor attractions in ${city} suitable for rainy weather (${tempText}), such as museums, galleries, covered markets, and cafes`;
+  }
+
+  if (["snow", "mist", "fog", "haze"].includes(normalized)) {
+    return `Warm indoor-friendly activities in ${city} for cold weather (${tempText}), including museums, cultural centers, and cozy cafes`;
+  }
+
+  if (normalized === "clear") {
+    return `Outdoor scenic attractions in ${city} for clear weather (${tempText}), including viewpoints, parks, and walking areas`;
+  }
+
+  return `Top attractions in ${city} suitable for ${normalized || "current"} weather (${tempText})`;
 }
 
 function buildDailyForecast(list, timezoneOffsetSec = 0) {
   if (!Array.isArray(list)) return [];
-
   const byDate = new Map();
 
   list.forEach((entry) => {
@@ -120,12 +276,15 @@ function Weather() {
   const [forecastError, setForecastError] = useState("");
 
   const [aiSuggestion, setAiSuggestion] = useState("");
+  const [aiActivityList, setAiActivityList] = useState([]);
+  const [aiTravelTips, setAiTravelTips] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
   const [placeSuggestions, setPlaceSuggestions] = useState([]);
   const [placesLoading, setPlacesLoading] = useState(false);
   const [placesError, setPlacesError] = useState("");
+  const [placesNotice, setPlacesNotice] = useState("");
 
   const sampleCities = ["Paris", "Tokyo", "New York", "Sydney", "Cairo", "Rio de Janeiro", "Moscow", "Cape Town"];
 
@@ -142,9 +301,12 @@ function Weather() {
     setTodayForecast([]);
     setForecastError("");
     setAiSuggestion("");
+    setAiActivityList([]);
+    setAiTravelTips([]);
     setAiError("");
     setPlaceSuggestions([]);
     setPlacesError("");
+    setPlacesNotice("");
 
     let apiKey = process.env.REACT_APP_WEATHER_API_KEY;
     if (!apiKey) {
@@ -220,15 +382,21 @@ function Weather() {
     const weatherDesc = result.weather?.[0]?.description || "weather";
     const temp = Math.round(result.main?.temp || 0);
 
-    const message = `I'm in ${city} where it's ${temp}°C and ${weatherDesc}. What are some good things to do today based on this weather?`;
+    const message = `You are a local travel planner. It is currently ${temp}°C with ${weatherDesc} in ${city}. Give 3-5 specific, realistic things to do based on this weather and 3 practical short tips in bullet form.`;
 
     setAiLoading(true);
     setAiError("");
     setAiSuggestion("");
+    setAiActivityList([]);
+    setAiTravelTips([]);
 
     requestGeminiReply({ message, context: { location: city, weather: weatherDesc, temp } })
       .then((data) => {
-        setAiSuggestion(data.reply || "");
+        const reply = data.reply || "";
+        setAiSuggestion(reply);
+        const structured = extractStructuredAiSuggestions(reply);
+        setAiActivityList(structured.activities);
+        setAiTravelTips(structured.tips);
       })
       .catch((err) => {
         setAiError(err.message || "Unable to get AI suggestions right now.");
@@ -237,14 +405,24 @@ function Weather() {
 
     setPlacesLoading(true);
     setPlacesError("");
+    setPlacesNotice("");
     setPlaceSuggestions([]);
 
-    requestPlacesReply({ message: `Things to do in ${city}`, searchType: "attractions" })
+    const weatherMain = (result.weather?.[0]?.main || "").toLowerCase();
+    const placesMessage = buildWeatherAwarePlacesMessage(city, weatherMain, temp);
+
+    requestPlacesReply({ message: placesMessage, searchType: "attractions" })
       .then((data) => {
-        setPlaceSuggestions(Array.isArray(data.places) ? data.places : []);
+        if (Array.isArray(data.places) && data.places.length > 0) {
+          setPlaceSuggestions(data.places);
+        } else {
+          setPlaceSuggestions(getFavoritePlacesForWeather(city, weatherMain));
+          setPlacesNotice("Showing curated nearby suggestions based on current weather.");
+        }
       })
-      .catch((err) => {
-        setPlacesError(err.message || "Unable to fetch nearby places right now.");
+      .catch(() => {
+        setPlacesNotice("Live nearby places are unavailable right now. Showing curated suggestions.");
+        setPlaceSuggestions(getFavoritePlacesForWeather(city, weatherMain));
       })
       .finally(() => setPlacesLoading(false));
   }, [result, location]);
@@ -336,13 +514,39 @@ function Weather() {
               <h4>AI activity ideas</h4>
               {aiLoading && <p>Thinking... (using AI to suggest activities)</p>}
               {aiError && <p className="weather-error">{aiError}</p>}
-              {!aiLoading && !aiError && aiSuggestion && <p>{aiSuggestion}</p>}
+
+              {!aiLoading && !aiError && aiActivityList.length > 0 && (
+                <>
+                  <h5>AI-generated recommended activities:</h5>
+                  <ul>
+                    {aiActivityList.slice(0, 5).map((activity, index) => (
+                      <li key={`ai-act-${index}`}>{activity}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {!aiLoading && !aiError && aiTravelTips.length > 0 && (
+                <>
+                  <h5>AI-generated travel tips:</h5>
+                  <ul>
+                    {aiTravelTips.slice(0, 4).map((tip, index) => (
+                      <li key={`ai-tip-${index}`}>{tip}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {!aiLoading && !aiError && !aiActivityList.length && aiSuggestion && (
+                <p>{aiSuggestion}</p>
+              )}
             </div>
 
             <div className="weather-places">
               <h4>Recommended nearby places</h4>
               {placesLoading && <p>Loading nearby attractions…</p>}
               {placesError && <p className="weather-error">{placesError}</p>}
+              {placesNotice && <p className="weather-note">{placesNotice}</p>}
               {!placesLoading && !placesError && placeSuggestions.length === 0 && (
                 <p>No place suggestions available right now.</p>
               )}
