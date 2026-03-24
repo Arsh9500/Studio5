@@ -1,6 +1,10 @@
 import json
 import os
 from urllib import error, request
+from env_config import load_env_files
+
+
+load_env_files()
 
 
 DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")

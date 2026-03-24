@@ -1,6 +1,11 @@
+
 import json
 import os
 from urllib import error, parse, request
+from env_config import load_env_files
+
+
+load_env_files()
 
 
 GOOGLE_PLACES_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
