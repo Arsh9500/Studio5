@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useItinerary } from "./context/ItineraryContext";
+import { requestGeminiReply } from "./services/geminiService";
+import { requestPlacesReply, buildPlaceMapLink } from "./services/placesService";
 import "./Weather.css";
 
 // Replace with your own free API key from https://openweathermap.org (or another provider)
@@ -17,6 +19,19 @@ function getWeatherRecommendation(result) {
     return {
       title: "Great day for outdoors",
       tip: `Sunny in ${cityName}. Good time for beach visits, parks, and walking tours.`,
+      activities: [
+        "Visit local beaches or waterfront areas",
+        "Go sightseeing and explore landmarks",
+        "Hiking in nearby trails or parks",
+        "Outdoor photography of scenic views",
+        "Picnic in a park or garden"
+      ],
+      travelTips: [
+        "Wear sunscreen and a hat",
+        "Stay hydrated and carry water",
+        "Use comfortable walking shoes",
+        "Check for any heat advisories"
+      ]
     };
   }
 
@@ -24,6 +39,19 @@ function getWeatherRecommendation(result) {
     return {
       title: "Rainy day plan",
       tip: `Wet weather in ${cityName}. Better for indoor plans like cafes, museums, and shopping.`,
+      activities: [
+        "Visit museums and art galleries",
+        "Explore indoor cafes and restaurants",
+        "Go shopping in malls or markets",
+        "Attend cultural shows or performances",
+        "Visit historical sites with indoor exhibits"
+      ],
+      travelTips: [
+        "Carry an umbrella or raincoat",
+        "Wear waterproof shoes",
+        "Plan indoor transportation options",
+        "Check for indoor attractions opening hours"
+      ]
     };
   }
 
@@ -31,6 +59,19 @@ function getWeatherRecommendation(result) {
     return {
       title: "Snow day tip",
       tip: `Snow expected in ${cityName}. Wear warm layers and keep indoor stops in your plan.`,
+      activities: [
+        "Go skiing or snowboarding at resorts",
+        "Build snowmen or have snowball fights",
+        "Visit winter festivals or markets",
+        "Enjoy hot drinks at cozy cafes",
+        "Take winter landscape photos"
+      ],
+      travelTips: [
+        "Wear warm, layered clothing",
+        "Use snow-appropriate footwear",
+        "Check road conditions for travel",
+        "Carry hand warmers and blankets"
+      ]
     };
   }
 
@@ -38,22 +79,139 @@ function getWeatherRecommendation(result) {
     return {
       title: "Balanced day plan",
       tip: `Cloudy weather in ${cityName}. Light outdoor sightseeing should still work well.`,
+      activities: [
+        "Take a city walking tour",
+        "Practice street photography",
+        "Visit botanical gardens or parks",
+        "Explore local neighborhoods",
+        "Attend outdoor markets or fairs"
+      ],
+      travelTips: [
+        "Carry a light jacket for changing weather",
+        "Have indoor backup plans ready",
+        "Use comfortable walking shoes",
+        "Check for any fog-related travel warnings"
+      ]
     };
   }
 
   return {
     title: "Smart travel tip",
     tip: `For ${cityName}, keep one outdoor option and one indoor backup plan.`,
+    activities: [
+      "Explore local attractions",
+      "Visit nearby cafes or restaurants",
+      "Go shopping in local stores",
+      "Take a leisurely walk",
+      "Try local cuisine"
+    ],
+    travelTips: [
+      "Check weather updates regularly",
+      "Have flexible plans",
+      "Carry essentials like water and snacks",
+      "Be prepared for weather changes"
+    ]
   };
 }
 
-function buildDailyForecast(list) {
-  if (!Array.isArray(list)) return [];
+function extractStructuredAiSuggestions(rawText) {
+  if (!rawText || typeof rawText !== "string") {
+    return { activities: [], tips: [] };
+  }
 
+  const lines = rawText
+    .split(/\r?\n/) 
+    .map((l) => l.trim().replace(/^[-*\s]+/, ""))
+    .filter(Boolean);
+
+  const activities = [];
+  const tips = [];
+
+  lines.forEach((line) => {
+    const lower = line.toLowerCase();
+    if (lower.includes("tip") || lower.includes("sunscreen") || lower.includes("umbrella") || lower.includes("weather")) {
+      if (tips.length < 5) tips.push(line);
+    } else if (activities.length < 5) {
+      activities.push(line);
+    }
+  });
+
+  if (activities.length < 3) {
+    const fallback = lines.slice(0, 5);
+    fallback.forEach((item) => {
+      if (!activities.includes(item) && activities.length < 5) activities.push(item);
+    });
+  }
+
+  return {
+    activities: activities.slice(0, 5),
+    tips: tips.slice(0, 4),
+  };
+}
+
+function getFavoritePlacesForWeather(city, weatherMain) {
+  const normalized = (weatherMain || "").toLowerCase();
+  const inCity = city || "this city";
+
+  const rainy = ["rain", "drizzle", "thunderstorm"].includes(normalized);
+  const cold = ["snow", "mist", "fog", "haze"].includes(normalized);
+  const normalizedKey = rainy ? "rain" : cold ? "snow" : normalized;
+
+  const presets = {
+    clear: [
+      { name: `${inCity} Riverside Promenade`, address: `Waterfront district, ${inCity}` },
+      { name: `${inCity} Botanical Garden`, address: `Garden Road, ${inCity}` },
+      { name: `${inCity} Scenic Viewpoint`, address: `Hilltop lookout, ${inCity}` },
+    ],
+    rain: [
+      { name: `${inCity} National Museum`, address: `Museum quarter, ${inCity}` },
+      { name: `${inCity} Indoor Food Hall`, address: `Market street, ${inCity}` },
+      { name: `${inCity} Art Gallery`, address: `Gallery avenue, ${inCity}` },
+    ],
+    snow: [
+      { name: `${inCity} Winter Culture Museum`, address: `Old town center, ${inCity}` },
+      { name: `${inCity} Heated Observation Deck`, address: `Central tower, ${inCity}` },
+      { name: `${inCity} Cozy Cocoa Cafe`, address: `Main square, ${inCity}` },
+    ],
+    clouds: [
+      { name: `${inCity} Historic City Walk`, address: `Town center, ${inCity}` },
+      { name: `${inCity} Street Photography Route`, address: `Old quarter, ${inCity}` },
+      { name: `${inCity} Riverside Cafe`, address: `River district, ${inCity}` },
+    ],
+  };
+
+  return presets[normalizedKey] || [
+    { name: `${inCity} Top Landmark`, address: `Center, ${inCity}` },
+    { name: `${inCity} Local Market`, address: `Market District, ${inCity}` },
+    { name: `${inCity} City Museum`, address: `Museum Rd, ${inCity}` },
+  ];
+}
+
+function buildWeatherAwarePlacesMessage(city, weatherMain, temp) {
+  const normalized = (weatherMain || "").toLowerCase();
+  const tempText = Number.isFinite(temp) ? `${temp}°C` : "current weather";
+
+  if (["rain", "drizzle", "thunderstorm"].includes(normalized)) {
+    return `Indoor attractions in ${city} suitable for rainy weather (${tempText}), such as museums, galleries, covered markets, and cafes`;
+  }
+
+  if (["snow", "mist", "fog", "haze"].includes(normalized)) {
+    return `Warm indoor-friendly activities in ${city} for cold weather (${tempText}), including museums, cultural centers, and cozy cafes`;
+  }
+
+  if (normalized === "clear") {
+    return `Outdoor scenic attractions in ${city} for clear weather (${tempText}), including viewpoints, parks, and walking areas`;
+  }
+
+  return `Top attractions in ${city} suitable for ${normalized || "current"} weather (${tempText})`;
+}
+
+function buildDailyForecast(list, timezoneOffsetSec = 0) {
+  if (!Array.isArray(list)) return [];
   const byDate = new Map();
 
   list.forEach((entry) => {
-    const dt = new Date((entry?.dt || 0) * 1000);
+    const dt = new Date((entry?.dt || 0) * 1000 + timezoneOffsetSec * 1000);
     if (Number.isNaN(dt.getTime())) return;
 
     const dateKey = dt.toISOString().slice(0, 10);
@@ -69,7 +227,7 @@ function buildDailyForecast(list) {
   return [...byDate.values()]
     .slice(1, 5)
     .map((entry) => {
-      const dt = new Date((entry.dt || 0) * 1000);
+      const dt = new Date((entry.dt || 0) * 1000 + timezoneOffsetSec * 1000);
       return {
         id: String(entry.dt),
         day: dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
@@ -80,6 +238,31 @@ function buildDailyForecast(list) {
     });
 }
 
+function buildTodayForecast(list, timezoneOffsetSec = 0) {
+  if (!Array.isArray(list)) return [];
+
+  const todayKey = new Date(Date.now() + timezoneOffsetSec * 1000).toISOString().slice(0, 10);
+
+  return list
+    .map((entry) => {
+      const dt = new Date((entry?.dt || 0) * 1000 + timezoneOffsetSec * 1000);
+      return {
+        ...entry,
+        localDateKey: dt.toISOString().slice(0, 10),
+        localTime: dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+      };
+    })
+    .filter((entry) => entry.localDateKey === todayKey)
+    .slice(0, 8)
+    .map((entry) => ({
+      id: String(entry.dt),
+      time: entry.localTime,
+      temp: Math.round(entry.main?.temp || 0),
+      description: entry.weather?.[0]?.description || "No details",
+      icon: entry.weather?.[0]?.icon || "",
+    }));
+}
+
 function Weather() {
   const locationState = useLocation();
   const { itineraryDestination, setItineraryDestination } = useItinerary();
@@ -88,8 +271,20 @@ function Weather() {
   const [error, setError] = useState("");
   const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
   const [forecast, setForecast] = useState([]);
+  const [todayForecast, setTodayForecast] = useState([]);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState("");
+
+  const [aiSuggestion, setAiSuggestion] = useState("");
+  const [aiActivityList, setAiActivityList] = useState([]);
+  const [aiTravelTips, setAiTravelTips] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  const [placeSuggestions, setPlaceSuggestions] = useState([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
+  const [placesError, setPlacesError] = useState("");
+  const [placesNotice, setPlacesNotice] = useState("");
 
   const sampleCities = ["Paris", "Tokyo", "New York", "Sydney", "Cairo", "Rio de Janeiro", "Moscow", "Cape Town"];
 
@@ -103,7 +298,15 @@ function Weather() {
     setError("");
     setResult(null);
     setForecast([]);
+    setTodayForecast([]);
     setForecastError("");
+    setAiSuggestion("");
+    setAiActivityList([]);
+    setAiTravelTips([]);
+    setAiError("");
+    setPlaceSuggestions([]);
+    setPlacesError("");
+    setPlacesNotice("");
 
     let apiKey = process.env.REACT_APP_WEATHER_API_KEY;
     if (!apiKey) {
@@ -137,7 +340,9 @@ function Weather() {
           const forecastData = await forecastRes.json();
 
           if (forecastRes.ok) {
-            setForecast(buildDailyForecast(forecastData.list));
+            const timezoneOffset = forecastData.city?.timezone ?? 0;
+            setTodayForecast(buildTodayForecast(forecastData.list, timezoneOffset));
+            setForecast(buildDailyForecast(forecastData.list, timezoneOffset));
           } else {
             setForecastError(forecastData.message || "Unable to fetch future forecast.");
           }
@@ -170,12 +375,68 @@ function Weather() {
     setHasAutoLoaded(true);
   }, [hasAutoLoaded, itineraryDestination, locationState.state, fetchWeatherForLocation]);
 
+  useEffect(() => {
+    if (!result) return;
+
+    const city = result.name || location;
+    const weatherDesc = result.weather?.[0]?.description || "weather";
+    const temp = Math.round(result.main?.temp || 0);
+
+    const message = `You are a local travel planner. It is currently ${temp}°C with ${weatherDesc} in ${city}. Give 3-5 specific, realistic things to do based on this weather and 3 practical short tips in bullet form.`;
+
+    setAiLoading(true);
+    setAiError("");
+    setAiSuggestion("");
+    setAiActivityList([]);
+    setAiTravelTips([]);
+
+    requestGeminiReply({ message, context: { location: city, weather: weatherDesc, temp } })
+      .then((data) => {
+        const reply = data.reply || "";
+        setAiSuggestion(reply);
+        const structured = extractStructuredAiSuggestions(reply);
+        setAiActivityList(structured.activities);
+        setAiTravelTips(structured.tips);
+      })
+      .catch((err) => {
+        setAiError(err.message || "Unable to get AI suggestions right now.");
+      })
+      .finally(() => setAiLoading(false));
+
+    setPlacesLoading(true);
+    setPlacesError("");
+    setPlacesNotice("");
+    setPlaceSuggestions([]);
+
+    const weatherMain = (result.weather?.[0]?.main || "").toLowerCase();
+    const placesMessage = buildWeatherAwarePlacesMessage(city, weatherMain, temp);
+
+    requestPlacesReply({ message: placesMessage, searchType: "attractions" })
+      .then((data) => {
+        if (Array.isArray(data.places) && data.places.length > 0) {
+          setPlaceSuggestions(data.places);
+        } else {
+          setPlaceSuggestions(getFavoritePlacesForWeather(city, weatherMain));
+          setPlacesNotice("Showing curated nearby suggestions based on current weather.");
+        }
+      })
+      .catch(() => {
+        setPlacesNotice("Live nearby places are unavailable right now. Showing curated suggestions.");
+        setPlaceSuggestions(getFavoritePlacesForWeather(city, weatherMain));
+      })
+      .finally(() => setPlacesLoading(false));
+  }, [result, location]);
+
+  const navigate = useNavigate();
   const themeClass = result ? `weather-${(result.weather?.[0]?.main || "").toLowerCase()}` : "weather-default";
 
   return (
     <div className={`weather-screen ${themeClass}`}>
       <div className="weather-page">
         <div className="weather-header">
+          <button type="button" className="weather-back" onClick={() => navigate(-1)}>
+            ← Back
+          </button>
           <img
             src="https://images.unsplash.com/photo-1501973801540-537f08ccae7f?w=100&auto=format&fit=crop"
             alt="weather icon"
@@ -248,7 +509,91 @@ function Weather() {
               <h4>{weatherRecommendation.title}</h4>
               <p>{weatherRecommendation.tip}</p>
             </div>
+
+            <div className="weather-ai">
+              <h4>AI activity ideas</h4>
+              {aiLoading && <p>Thinking... (using AI to suggest activities)</p>}
+              {aiError && <p className="weather-error">{aiError}</p>}
+
+              {!aiLoading && !aiError && aiActivityList.length > 0 && (
+                <>
+                  <h5>AI-generated recommended activities:</h5>
+                  <ul>
+                    {aiActivityList.slice(0, 5).map((activity, index) => (
+                      <li key={`ai-act-${index}`}>{activity}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {!aiLoading && !aiError && aiTravelTips.length > 0 && (
+                <>
+                  <h5>AI-generated travel tips:</h5>
+                  <ul>
+                    {aiTravelTips.slice(0, 4).map((tip, index) => (
+                      <li key={`ai-tip-${index}`}>{tip}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {!aiLoading && !aiError && !aiActivityList.length && aiSuggestion && (
+                <p>{aiSuggestion}</p>
+              )}
+            </div>
+
+            <div className="weather-places">
+              <h4>Recommended nearby places</h4>
+              {placesLoading && <p>Loading nearby attractions…</p>}
+              {placesError && <p className="weather-error">{placesError}</p>}
+              {placesNotice && <p className="weather-note">{placesNotice}</p>}
+              {!placesLoading && !placesError && placeSuggestions.length === 0 && (
+                <p>No place suggestions available right now.</p>
+              )}
+              {!placesLoading && placeSuggestions.length > 0 && (
+                <div className="weather-places-grid">
+                  {placeSuggestions.map((place) => (
+                    <article key={place.placeId || place.name} className="weather-place-item">
+                      <h5 className="place-name">{place.name}</h5>
+                      {place.rating != null && (
+                        <p className="place-rating">⭐ {place.rating.toFixed(1)}</p>
+                      )}
+                      <p className="place-address">{place.address}</p>
+                      <a
+                        className="place-link"
+                        href={buildPlaceMapLink(place)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View on map
+                      </a>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+        )}
+
+        {result && todayForecast.length > 0 && (
+          <section className="weather-forecast">
+            <h3>Today's forecast</h3>
+            <div className="weather-today-grid">
+              {todayForecast.map((item) => (
+                <article key={item.id} className="weather-forecast-item">
+                  <p className="forecast-day">{item.time}</p>
+                  {item.icon && (
+                    <img
+                      alt={item.description}
+                      src={`https://openweathermap.org/img/wn/${item.icon}.png`}
+                    />
+                  )}
+                  <p className="forecast-temp">{item.temp}&deg;C</p>
+                  <p className="forecast-desc">{item.description}</p>
+                </article>
+              ))}
+            </div>
+          </section>
         )}
 
         {result && (

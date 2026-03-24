@@ -16,5 +16,21 @@ export async function requestPlacesReply({ message, searchType, context = {} }) 
 }
 
 export function buildPlaceMapLink(place) {
-  return place?.mapsUrl || "#";
+  const mapsUrl = (place?.mapsUrl || "").trim();
+  if (/^https?:\/\//i.test(mapsUrl)) {
+    return mapsUrl;
+  }
+
+  const lat = place?.coordinates?.lat;
+  const lng = place?.coordinates?.lng;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+
+  const queryParts = [place?.name, place?.address].filter(Boolean).join(" ").trim();
+  if (queryParts) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryParts)}`;
+  }
+
+  return "https://maps.google.com";
 }

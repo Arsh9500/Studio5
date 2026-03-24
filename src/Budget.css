@@ -1,9 +1,24 @@
 .budget-page {
-  max-width: 980px;
+  --bg-ink: #0b1726;
+  --bg-slate: #f4f7fb;
+  --card: #ffffff;
+  --line: #d8e2ef;
+  --line-soft: #e8eef6;
+  --text-main: #0f172a;
+  --text-muted: #506176;
+  --brand: #175cd3;
+  --brand-dark: #144eb6;
+  --teal: #0f766e;
+
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 24px 18px 36px;
-  font-family: "Segoe UI", system-ui, sans-serif;
-  color: #0f172a;
+  padding: 28px 18px 40px;
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(1200px 460px at 0% -8%, #dbeafe 0%, transparent 55%),
+    radial-gradient(900px 380px at 100% -12%, #e0f2fe 0%, transparent 52%),
+    var(--bg-slate);
 }
 
 .budget-header {
@@ -12,14 +27,18 @@
 
 .budget-header-inner {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(6px);
 }
 
 .budget-logo {
-  width: 160px;
+  width: 168px;
   height: 36px;
 }
 
@@ -31,8 +50,13 @@
 
 .budget-nav-links a {
   text-decoration: none;
-  color: #1d4ed8;
+  color: var(--brand);
   font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.budget-nav-links a:hover {
+  color: var(--brand-dark);
 }
 
 .budget-main {
@@ -40,34 +64,40 @@
   gap: 16px;
 }
 
+.budget-intro {
+  padding: 2px 2px 0;
+}
+
 .budget-intro h1 {
   margin: 0 0 6px;
-  font-size: 1.9rem;
+  font-size: 2rem;
+  letter-spacing: 0.2px;
 }
 
 .budget-intro p {
   margin: 0;
-  color: #334155;
+  color: var(--text-muted);
 }
 
 .budget-selected {
   margin-top: 10px;
   font-weight: 600;
-  color: #1f2937;
+  color: #1e2f48;
 }
 
 .budget-form-card,
 .budget-summary-card {
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+  padding: 20px;
 }
 
 .budget-form-card h2,
 .budget-summary-card h2 {
   margin: 0 0 14px;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
 }
 
 .budget-form-grid {
@@ -79,41 +109,55 @@
 .budget-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .budget-field label {
   font-weight: 600;
-  color: #334155;
+  font-size: 0.95rem;
+  color: #34455a;
 }
 
 .budget-field input,
 .budget-field select {
-  padding: 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  padding: 11px 12px;
+  border: 1px solid #c9d7e8;
+  border-radius: 11px;
   font-family: inherit;
+  font-size: 0.96rem;
+  color: var(--text-main);
+  background: #fbfdff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.budget-field input:focus,
+.budget-field select:focus {
+  outline: none;
+  border-color: #8ab4f8;
+  box-shadow: 0 0 0 4px rgba(23, 92, 211, 0.12);
+  background: #ffffff;
 }
 
 .budget-help-text {
   margin: 6px 0 0;
   font-size: 0.9rem;
-  color: #64748b;
+  color: #60758d;
 }
 
 .budget-suggestions {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  background: #fff;
-  max-height: 210px;
+  border: 1px solid #c9d7e8;
+  border-radius: 11px;
+  background: #ffffff;
+  max-height: 230px;
   overflow: auto;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
 }
 
 .budget-suggestions li {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #eaf0f7;
 }
 
 .budget-suggestions li:last-child {
@@ -122,83 +166,109 @@
 
 .budget-suggestion-btn {
   width: 100%;
-  padding: 10px;
+  padding: 10px 11px;
   text-align: left;
   border: none;
   background: transparent;
   cursor: pointer;
   font: inherit;
-  color: #0f172a;
+  color: #14243a;
 }
 
 .budget-suggestion-btn:hover {
-  background: #f1f5f9;
+  background: #f2f7ff;
 }
 
-.budget-hotel-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  max-height: 220px;
-  overflow: auto;
-}
-
-.budget-hotel-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
+.budget-actions {
+  display: flex;
   gap: 10px;
-  padding: 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  background: #f8fafc;
-  cursor: pointer;
-  align-items: center;
-}
-
-.budget-hotel-item.selected {
-  border-color: #1d4ed8;
-  background: rgba(29, 78, 216, 0.12);
-}
-
-.budget-hotel-title {
-  font-weight: 600;
-}
-
-.budget-hotel-meta {
-  font-size: 0.85rem;
-  color: #475569;
-}
-
-.budget-hotel-action {
-  font-weight: 700;
-  color: #1d4ed8;
-}
-
-.budget-amenities {
-  grid-column: 1 / -1;
-}
-
-.amenity-grid {
-  display: flex;
+  margin-top: 12px;
   flex-wrap: wrap;
-  gap: 8px;
 }
 
-.amenity-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-  color: #334155;
+.budget-actions button,
+.budget-actions .budget-secondary {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+}
+
+.budget-actions button:hover,
+.budget-actions .budget-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(20, 78, 182, 0.26);
+}
+
+.budget-actions .budget-secondary {
+  background: #5f6f84;
+}
+
+.budget-actions .budget-secondary:hover {
+  box-shadow: 0 8px 14px rgba(40, 59, 84, 0.25);
+}
+
+.budget-actions .budget-ai-btn {
+  background: var(--teal);
+}
+
+.budget-actions .budget-ai-btn:hover {
+  box-shadow: 0 8px 14px rgba(15, 118, 110, 0.3);
+}
+
+.budget-actions .budget-ai-btn:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.budget-save-success {
+  margin: 10px 0 0;
+  color: #0b766d;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.budget-ai-panel {
+  margin-top: 16px;
+  padding: 15px;
+  border: 1px solid #c8d8ee;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f9fbff 0%, #f5f9ff 100%);
+}
+
+.budget-ai-panel h3 {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+  color: #183b7a;
+}
+
+.budget-ai-summary {
+  margin: 0 0 10px;
+  color: #314357;
+  line-height: 1.5;
+}
+
+.budget-ai-error {
+  margin: 0 0 10px;
+  color: #b91c1c;
+  font-weight: 600;
 }
 
 .budget-breakdown {
   display: grid;
   gap: 10px;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
   border-radius: 10px;
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 .budget-row {
@@ -207,58 +277,57 @@
   align-items: center;
   gap: 12px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-main);
 }
 
-.budget-total {
-  font-size: 1.05rem;
-  margin-top: 8px;
+.budget-dual-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 }
 
-.budget-remaining {
-  font-weight: 700;
-  color: #0f172a;
+.budget-dual-value strong {
+  font-size: 0.98rem;
+  letter-spacing: 0.1px;
+}
+
+.budget-dual-value em {
+  font-style: normal;
+  font-size: 0.84rem;
+  color: #60758d;
 }
 
 .budget-divider {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--line-soft);
   margin: 8px 0;
 }
 
-.budget-warning {
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: 10px;
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  color: #991b1b;
-  font-weight: 600;
+.budget-total {
+  font-size: 1.03rem;
+  margin-top: 6px;
 }
 
-.budget-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-  flex-wrap: wrap;
+.budget-remaining {
+  color: #1f3554;
 }
 
-.budget-actions button,
-.budget-actions .budget-secondary {
-  border: none;
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
+.budget-ai-tips {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: #32475f;
 }
 
-.budget-actions .budget-secondary {
-  background: #64748b;
+.budget-ai-tips li {
+  margin-bottom: 6px;
+  line-height: 1.45;
 }
 
-@media (max-width: 580px) {
+@media (max-width: 680px) {
+  .budget-page {
+    padding: 18px 12px 28px;
+  }
+
   .budget-header-inner {
     flex-direction: column;
     align-items: flex-start;
@@ -266,5 +335,6 @@
 
   .budget-actions {
     flex-direction: column;
+    align-items: stretch;
   }
 }

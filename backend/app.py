@@ -1,13 +1,19 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from dotenv import load_dotenv
+from pathlib import Path
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from chat_workflow import classify_search_type, handle_chat_message
-from gemini_service import generate_travel_reply
+from gemini_service import generate_budget_reply, generate_travel_reply
 from places_service import search_places
+
+
+ROOT_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(ROOT_ENV_PATH, override=True)
 
 
 app = Flask(__name__)
@@ -311,6 +317,36 @@ def chat_with_gemini():
         return jsonify({"error": str(exc)}), 502
 
     return jsonify({"reply": reply, "mode": "gemini", "places": [], "searchType": "general"})
+
+
+@app.post("/chat/budget")
+def chat_with_budget_ai():
+    payload = request.get_json(silent=True) or {}
+    destination = (payload.get("destination") or "").strip()
+    days = payload.get("days")
+    total_budget = payload.get("totalBudget")
+    currency = (payload.get("currency") or "USD").strip().upper()
+
+    if not destination:
+        return jsonify({"error": "destination is required"}), 400
+
+    try:
+        days_value = int(days)
+        budget_value = float(total_budget)
+    except (TypeError, ValueError):
+        return jsonify({"error": "days must be an integer and totalBudget must be numeric"}), 400
+
+    if days_value <= 0 or budget_value <= 0:
+        return jsonify({"error": "days and totalBudget must be greater than 0"}), 400
+
+    try:
+        result = generate_budget_reply(destination, days_value, budget_value, currency=currency)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 503
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    return jsonify({"mode": "budget-ai", **result})
 
 
 @app.post("/chat/places")
