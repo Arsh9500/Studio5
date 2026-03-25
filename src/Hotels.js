@@ -9,8 +9,9 @@ import { saveUserHotelBooking } from "./utils/bookings";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import "./Destinations.css";
 
-const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const GEOAPIFY_AUTOCOMPLETE_URL = "https://api.geoapify.com/v1/geocode/autocomplete";
+const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyDaTMu-tfWO3e51T5Yo_8jMScUrH5RkP8E";
 const WIKIPEDIA_SUMMARY_BASE_URL = "https://en.wikipedia.org/api/rest_v1/page/summary";
 const FILTER_ALL_OPTION = "All";
 const DEFAULT_HOTEL_TYPES = ["Hotel", "Guest House", "Hostel", "Apartment", "Motel"];
@@ -332,7 +333,7 @@ function Hotels() {
 
     try {
       const locationResponse = await fetch(
-        `${NOMINATIM_SEARCH_URL}?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&limit=8`,
+        `${GEOAPIFY_AUTOCOMPLETE_URL}?text=${encodeURIComponent(q)}&apiKey=${process.env.REACT_APP_GEOAPIFY_API_KEY}`,
         {
           signal,
           headers: {
@@ -350,24 +351,16 @@ function Hotels() {
       }
 
       const locationPayload = await locationResponse.json();
-      const locations = (Array.isArray(locationPayload) ? locationPayload : [])
-        .filter((item) => ["city", "town", "village", "municipality", "county", "country"].includes(item.type))
+      const locations = (Array.isArray(locationPayload?.features) ? locationPayload.features : [])
         .map((item) => ({
-          id: `${item.osm_type}-${item.osm_id}`,
-          locationType: item.type,
-          name:
-            item.address?.city ||
-            item.address?.town ||
-            item.address?.village ||
-            item.address?.county ||
-            item.address?.country ||
-            item.name ||
-            q,
-          region: item.address?.state || item.address?.region || "Unknown",
-          country: item.address?.country || "Unknown",
-          lat: Number(item.lat),
-          lon: Number(item.lon),
-          displayName: item.display_name || q,
+          id: item.properties?.place_id || item.properties?.osm_id,
+          locationType: item.properties?.result_type || "place",
+          name: item.properties?.city || item.properties?.county || item.properties?.country || q,
+          region: item.properties?.state || item.properties?.region || "Unknown",
+          country: item.properties?.country || "Unknown",
+          lat: Number(item.properties?.lat),
+          lon: Number(item.properties?.lon),
+          displayName: item.properties?.formatted || q,
         }))
         .filter((item) => item.name && Number.isFinite(item.lat) && Number.isFinite(item.lon))
         .slice(0, 8);
@@ -1159,7 +1152,7 @@ out center tags 24;
                           className="dest-view-link"
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                             `${hotel.name}, ${hotel.city}, ${hotel.country}`
-                          )}`}
+                          )}&key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}`}
                           target="_blank"
                           rel="noreferrer"
                         >
