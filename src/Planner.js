@@ -34,6 +34,8 @@ function Planner() {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherResult, setWeatherResult] = useState(null);
   const [weatherError, setWeatherError] = useState("");
+  const [hotelRecommendations, setHotelRecommendations] = useState([]);
+  const [hotelRecommendationsLoading, setHotelRecommendationsLoading] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -95,30 +97,12 @@ function Planner() {
   }, [todayString, upcomingTrips]);
 
   const recommendedHotels = useMemo(() => {
-    const destinationQuery = normalizeDestinationQuery(itineraryDestination);
-    if (!destinationQuery) return [];
-
-    // Keep recommendations simple and easy to understand.
-    const normalizedQuery = destinationQuery.toLowerCase();
-    const byCity = destinations.filter((item) => {
-      const city = item.city.toLowerCase();
-      const country = item.country.toLowerCase();
-      const region = (item.region || "").toLowerCase();
-      return (
-        city.includes(normalizedQuery) ||
-        normalizedQuery.includes(city) ||
-        country.includes(normalizedQuery) ||
-        region.includes(normalizedQuery)
-      );
-    });
-    const source = byCity.length ? byCity : destinations.slice(0, 3);
-
-    return source.slice(0, 3).map((item, index) => ({
-      id: item.id,
-      name: `${item.city} ${["Central Hotel", "Grand Suites", "Harbour Lodge"][index % 3]}`,
-      area: `${item.city}, ${item.country}`,
+    return hotelRecommendations.slice(0, 3).map((hotel) => ({
+      id: hotel.hotel_name,
+      name: hotel.hotel_name,
+      area: `Rating: ${hotel.rating}/5 | $${Math.round(hotel.price_per_night)}/night`,
     }));
-  }, [itineraryDestination]);
+  }, [hotelRecommendations]);
 
   useEffect(() => {
     const destinationQuery = normalizeDestinationQuery(itineraryDestination);
@@ -166,6 +150,45 @@ function Planner() {
     return () => {
       cancelled = true;
     };
+  }, [itineraryDestination]);
+
+  useEffect(() => {
+    const destinationQuery = normalizeDestinationQuery(itineraryDestination);
+    if (!destinationQuery) {
+      setHotelRecommendations([]);
+      return;
+    }
+
+    const fetchHotels = async () => {
+      setHotelRecommendationsLoading(true);
+      try {
+        const travelApiBase = process.env.REACT_APP_TRAVEL_API_BASE_URL || "http://127.0.0.1:5000";
+        const response = await fetch(`${travelApiBase}/recommend-hotels`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            budget: 150,
+            location_preference: "city centre",
+            amenities: ["wifi"],
+            past_choices: [],
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHotelRecommendations(data.recommendations || []);
+        } else {
+          setHotelRecommendations([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch hotel recommendations", error);
+        setHotelRecommendations([]);
+      } finally {
+        setHotelRecommendationsLoading(false);
+      }
+    };
+
+    fetchHotels();
   }, [itineraryDestination]);
 
   const resetForm = () => {
@@ -355,7 +378,9 @@ function Planner() {
           <h2>Smart Recommendations for {itineraryDestination}</h2>
           <p className="planner-empty">Book Hotel: ready to find stays that match this itinerary destination.</p>
 
-          {recommendedHotels.length > 0 && (
+          {hotelRecommendationsLoading && <p className="planner-empty">Loading hotel recommendations...</p>}
+
+          {!hotelRecommendationsLoading && recommendedHotels.length > 0 && (
             <div className="planner-trip-list">
               {recommendedHotels.map((hotel) => (
                 <article key={hotel.id} className="planner-trip-item">
@@ -364,6 +389,10 @@ function Planner() {
                 </article>
               ))}
             </div>
+          )}
+
+          {!hotelRecommendationsLoading && recommendedHotels.length === 0 && (
+            <p className="planner-empty">No hotel recommendations available. Visit the Hotels page to search.</p>
           )}
 
           <div className="planner-smart-weather">

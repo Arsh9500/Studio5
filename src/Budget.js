@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "./components/Logo";
+import { useAuth } from "./context/AuthContext";
+import { saveUserBudgets, loadUserBudgets } from "./utils/budgets";
 import { requestBudgetPlan } from "./services/budgetAiService";
 import "./Budget.css";
 
@@ -48,6 +50,7 @@ function pickCurrencyFromCountryPayload(payload) {
 function Budget() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const state = location.state || {};
 
   const [totalBudget, setTotalBudget] = useState(state.totalBudget || "");
@@ -314,36 +317,50 @@ function Budget() {
     }
   };
 
-  const handleSaveToPlanner = () => {
+  const handleSaveToPlanner = async () => {
     if (!budgetAiResult) {
-      setSaveMessage("Generate AI budget plan first, then save to planner.");
+      setSaveMessage("Generate AI budget plan first, then save to dashboard.");
       setTimeout(() => setSaveMessage(""), 3500);
       return;
     }
 
-    const ai = budgetAiResult.breakdown || {};
-    const trip = {
-      city: selectedLocation?.name || destinationSearch || "",
-      budget: safeNumber(totalBudget),
-      days: nights,
-      hotelCost: safeNumber(ai.hotel).toFixed(0),
-      foodCost: safeNumber(ai.food).toFixed(0),
-      transportCost: safeNumber(ai.transport).toFixed(0),
-      activitiesCost: safeNumber(ai.activities).toFixed(0),
-      miscCost: safeNumber(ai.misc).toFixed(0),
-      estimatedTotal: safeNumber(ai.total).toFixed(0),
-      remaining: (safeNumber(totalBudget) - safeNumber(ai.total)).toFixed(0),
-      destinationSummary: budgetAiResult.destinationSummary || "",
-      aiTips: Array.isArray(budgetAiResult.tips) ? budgetAiResult.tips : [],
-      timestamp: Date.now(),
-      source: "ai",
-    };
+    if (!user?.uid) {
+      setSaveMessage("Please log in to save to your dashboard.");
+      setTimeout(() => setSaveMessage(""), 3500);
+      return;
+    }
 
-    const saved = JSON.parse(localStorage.getItem("savedTrips") || "[]");
-    saved.push(trip);
-    localStorage.setItem("savedTrips", JSON.stringify(saved));
-    setSaveMessage("AI trip budget saved to planner!");
-    setTimeout(() => setSaveMessage(""), 3500);
+    try {
+      const ai = budgetAiResult.breakdown || {};
+      const newBudget = {
+        id: `budget-${Date.now()}`,
+        destination: selectedLocation?.name || destinationSearch || "",
+        days: nights,
+        totalBudget: safeNumber(totalBudget),
+        hotelCost: safeNumber(ai.hotel).toFixed(0),
+        foodCost: safeNumber(ai.food).toFixed(0),
+        transportCost: safeNumber(ai.transport).toFixed(0),
+        activitiesCost: safeNumber(ai.activities).toFixed(0),
+        miscCost: safeNumber(ai.misc).toFixed(0),
+        estimatedTotal: safeNumber(ai.total).toFixed(0),
+        remaining: (safeNumber(totalBudget) - safeNumber(ai.total)).toFixed(0),
+        destinationSummary: budgetAiResult.destinationSummary || "",
+        aiTips: Array.isArray(budgetAiResult.tips) ? budgetAiResult.tips : [],
+        createdAt: new Date().toISOString(),
+        source: "ai",
+      };
+
+      const existingBudgets = await loadUserBudgets(user.uid);
+      const updatedBudgets = [...existingBudgets, newBudget];
+      await saveUserBudgets(user.uid, updatedBudgets);
+
+      setSaveMessage("AI budget plan saved to your dashboard!");
+      setTimeout(() => setSaveMessage(""), 3500);
+    } catch (error) {
+      console.error("Failed to save to dashboard:", error);
+      setSaveMessage("Failed to save. Please try again.");
+      setTimeout(() => setSaveMessage(""), 3500);
+    }
   };
 
   const aiBreakdown = budgetAiResult?.breakdown || {};
@@ -474,7 +491,7 @@ function Budget() {
               Back
             </button>
             <button type="button" className="budget-secondary" onClick={handleSaveToPlanner}>
-              Save to Planner
+              Save to Dashboard
             </button>
             <button
               type="button"

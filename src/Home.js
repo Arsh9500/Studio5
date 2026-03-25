@@ -9,6 +9,7 @@ function Home() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   const welcomeType = location.state?.welcomeType;
   const displayName =
@@ -17,11 +18,43 @@ function Home() {
   const welcomeText = welcomeType === "back" ? "Welcome back" : "Welcome";
 
   const handleSearchGo = () => {
-    if (!user) {
-      navigate("/register", { state: { from: "/" } });
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return;
+
+    const routeRules = [
+      { keywords: ["home", "main"], path: "/", requiresAuth: false },
+      { keywords: ["about", "info"], path: "/about", requiresAuth: false },
+      { keywords: ["destination", "destinations", "place", "places"], path: "/destinations", requiresAuth: true },
+      { keywords: ["hotel", "hotels", "stay", "booking"], path: "/hotels", requiresAuth: true },
+      { keywords: ["planner", "plan", "itinerary"], path: "/planner", requiresAuth: true },
+      { keywords: ["budget", "cost", "expense"], path: "/budget", requiresAuth: true },
+      { keywords: ["weather", "forecast", "temperature"], path: "/weather", requiresAuth: true },
+      { keywords: ["dashboard", "my trips", "overview"], path: "/dashboard", requiresAuth: true },
+      { keywords: ["profile", "account", "settings"], path: "/profile", requiresAuth: true },
+      { keywords: ["login", "sign in"], path: "/login", requiresAuth: false },
+      { keywords: ["register", "sign up", "signup"], path: "/register", requiresAuth: false },
+    ];
+
+    const matchedRoute = routeRules.find((rule) =>
+      rule.keywords.some((keyword) => query.includes(keyword))
+    );
+
+    const destination = matchedRoute?.path || "/destinations";
+    const requiresAuth = matchedRoute?.requiresAuth ?? true;
+
+    if (!user && requiresAuth) {
+      navigate("/register", { state: { from: destination } });
       return;
     }
-    navigate("/destinations");
+
+    navigate(destination);
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSearchGo();
+    }
   };
 
   return (
@@ -69,7 +102,10 @@ function Home() {
           <div className="hero-search">
             <input
               type="text"
-              placeholder="Search the site: profile, About, destinations, and more"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search pages: hotels, planner, budget, weather, dashboard"
             />
             <button type="button" onClick={handleSearchGo}>
               Go
