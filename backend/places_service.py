@@ -11,36 +11,49 @@ load_env_files()
 GOOGLE_PLACES_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
 GOOGLE_PLACES_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 GOOGLE_PLACES_PHOTO_URL = "https://maps.googleapis.com/maps/api/place/photo"
+GOOGLE_PLACES_NEW_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+GOOGLE_PLACES_NEW_PLACE_URL = "https://places.googleapis.com/v1/places"
+
+
+def _get_places_api_key():
+    return os.getenv("GOOGLE_PLACES_API_KEY") or os.getenv("REACT_APP_GOOGLE_MAPS_API_KEY")
 
 
 def places_is_configured():
-    return bool(os.getenv("GOOGLE_PLACES_API_KEY"))
+    return bool(_get_places_api_key())
 
 
 def search_places(message, search_type, context=None):
-    api_key = os.getenv("GOOGLE_PLACES_API_KEY")
+    api_key = _get_places_api_key()
     if not api_key:
         raise ValueError("GOOGLE_PLACES_API_KEY is not configured on the backend.")
 
     context = context or {}
     query = build_places_query(message, search_type, context)
-    raw_results = request_json(
-        GOOGLE_PLACES_TEXT_SEARCH_URL,
-        {
-            "query": query,
-            "key": api_key,
-        },
-    )
+    try:
+        raw_results = request_json(
+            GOOGLE_PLACES_TEXT_SEARCH_URL,
+            {
+                "query": query,
+                "key": api_key,
+            },
+        )
+        results = raw_results.get("results") or []
+        places = [normalize_place_result(item, api_key) for item in results[:6]]
+    except RuntimeError as exc:
+        # Some keys only have Places API (New) enabled.
+        # Fall back automatically so the frontend does not need changes.
+        if "LegacyApiNotActivatedMapError" not in str(exc):
+            raise
+        places = search_places_new(query, api_key)
 
-    results = raw_results.get("results") or []
-    if not results:
+    if not places:
         return {
             "reply": "I could not find live place results for that request right now.",
             "places": [],
             "searchType": search_type,
         }
 
-    places = [normalize_place_result(item, api_key) for item in results[:6]]
     reply = build_places_reply(search_type, query, places)
     return {
         "reply": reply,
@@ -51,23 +64,27 @@ def search_places(message, search_type, context=None):
 
 
 def get_place_details(place_id):
-    api_key = os.getenv("GOOGLE_PLACES_API_KEY")
+    api_key = _get_places_api_key()
     if not api_key:
         raise ValueError("GOOGLE_PLACES_API_KEY is not configured on the backend.")
 
-    data = request_json(
-        GOOGLE_PLACES_DETAILS_URL,
-        {
-            "place_id": place_id,
-            "fields": "name,formatted_address,rating,geometry,photos,url,website,formatted_phone_number",
-            "key": api_key,
-        },
-    )
-    result = data.get("result") or {}
-    if not result:
-        raise RuntimeError("No place details were returned.")
-
-    return normalize_place_result(result, api_key)
+    try:
+        data = request_json(
+            GOOGLE_PLACES_DETAILS_URL,
+            {
+                "place_id": place_id,
+                "fields": "name,formatted_address,rating,geometry,photos,url,website,formatted_phone_number",
+                "key": api_key,
+            },
+        )
+        result = data.get("result") or {}
+        if not result:
+            raise RuntimeError("No place details were returned.")
+        return normalize_place_result(result, api_key)
+    except RuntimeError as exc:
+        if "LegacyApiNotActivatedMapError" not in str(exc):
+            raise
+        return get_place_details_new(place_id, api_key)
 
 
 def build_places_query(message, search_type, context):
@@ -131,6 +148,83 @@ def normalize_place_result(item, api_key):
         "photoUrl": photo_url,
         "mapsUrl": maps_url,
     }
+
+
+def normalize_new_place_result(item):
+    location = item.get("location") or {}
+    lat = location.get("latitude")
+    lng = location.get("longitude")
+    place_id = item.get("id", "")
+
+    maps_url = item.get("googleMapsUri")
+    if not maps_url:
+        maps_url = f"https://www.google.com/maps/search/?api=1&query={lat or 0},{lng or 0}"
+
+    return {
+        "placeId": place_id,
+        "name": (item.get("displayName") or {}).get("text") or "Unknown place",
+        "address": item.get("formattedAddress") or "Address unavailable",
+        "rating": item.get("rating"),
+        "coordinates": {
+            "lat": lat,
+            "lng": lng,
+        },
+        "photoUrl": "",
+        "mapsUrl": maps_url,
+    }
+
+
+def request_places_new_text_search(query, api_key):
+    body = json.dumps({"textQuery": query}).encode("utf-8")
+    req = request.Request(
+        GOOGLE_PLACES_NEW_TEXT_SEARCH_URL,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.location,places.googleMapsUri",
+        },
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(req, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Google Places (New) request failed: {error_body or exc.reason}") from exc
+    except error.URLError as exc:
+        raise RuntimeError("Google Places (New) could not be reached from the backend.") from exc
+
+
+def search_places_new(query, api_key):
+    payload = request_places_new_text_search(query, api_key)
+    return [normalize_new_place_result(item) for item in (payload.get("places") or [])[:6]]
+
+
+def get_place_details_new(place_id, api_key):
+    req = request.Request(
+        f"{GOOGLE_PLACES_NEW_PLACE_URL}/{parse.quote(place_id)}",
+        headers={
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,location,googleMapsUri",
+        },
+        method="GET",
+    )
+
+    try:
+        with request.urlopen(req, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Google Places (New) details request failed: {error_body or exc.reason}") from exc
+    except error.URLError as exc:
+        raise RuntimeError("Google Places (New) details endpoint could not be reached from the backend.") from exc
+
+    if not payload:
+        raise RuntimeError("No place details were returned.")
+
+    return normalize_new_place_result(payload)
 
 
 def request_json(base_url, params):

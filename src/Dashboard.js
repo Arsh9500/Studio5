@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { loadUserHotelBookings } from "./utils/bookings";
 import { loadUserTrips, saveUserTrips } from "./utils/trips";
+import { loadUserBudgets, saveUserBudgets } from "./utils/budgets";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import { categorizeTrips } from "./utils/tripStatus";
 import "./Dashboard.css";
@@ -27,6 +28,7 @@ function Dashboard() {
   const displayName =
     user?.displayName || user?.name || user?.email?.split("@")[0] || "Traveler";
   const [trips, setTrips] = useState([]);
+  const [budgets, setBudgets] = useState([]);
   const [hotelBookings, setHotelBookings] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [editingTripId, setEditingTripId] = useState("");
@@ -45,13 +47,15 @@ function Dashboard() {
     let ignore = false;
 
     const syncData = async () => {
-      const [savedTrips, savedWishlist, savedHotelBookings] = await Promise.all([
+      const [savedTrips, savedBudgets, savedWishlist, savedHotelBookings] = await Promise.all([
         loadUserTrips(user?.uid),
+        loadUserBudgets(user?.uid),
         loadUserWishlist(user?.uid),
         loadUserHotelBookings(user?.uid),
       ]);
       if (ignore) return;
       setTrips(savedTrips);
+      setBudgets(savedBudgets);
       setWishlist(savedWishlist);
       setHotelBookings(
         [...savedHotelBookings].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
@@ -241,6 +245,10 @@ function Dashboard() {
           <p>Notifications</p>
         </article>
         <article>
+          <h3>{budgets.length}</h3>
+          <p>AI Budget Plans</p>
+        </article>
+        <article>
           <h3>{wishlist.length}</h3>
           <p>Wishlist Items</p>
         </article>
@@ -405,6 +413,50 @@ function Dashboard() {
       </section>
 
       <section className="dashboard-card">
+        <h2>AI Budget Plans ({budgets.length})</h2>
+        {budgets.length === 0 ? (
+          <p className="dashboard-empty">No AI budget plans saved yet.</p>
+        ) : (
+          <div className="dashboard-trip-list">
+            {budgets.map((budget) => (
+              <article key={budget.id} className="dashboard-trip-item">
+                <h3>{budget.destination}</h3>
+                <p>Days: {budget.days}</p>
+                <p>Total Budget: ${budget.totalBudget}</p>
+                <p>Estimated Total: ${budget.estimatedTotal}</p>
+                <p>Remaining: ${budget.remaining}</p>
+                <div style={{ marginTop: "10px", fontSize: "0.9em", color: "#666" }}>
+                  <p>
+                    Hotel: ${budget.hotelCost} | Food: ${budget.foodCost} | Transport: ${budget.transportCost} |
+                    Activities: ${budget.activitiesCost} | Misc: ${budget.miscCost}
+                  </p>
+                </div>
+                {budget.destinationSummary && (
+                  <p>
+                    <em>{budget.destinationSummary}</em>
+                  </p>
+                )}
+                <div className="dashboard-trip-actions">
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => {
+                      const nextBudgets = budgets.filter((b) => b.id !== budget.id);
+                      setBudgets(nextBudgets);
+                      saveUserBudgets(user?.uid, nextBudgets);
+                      setStatus("Budget plan deleted.");
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="dashboard-card">
         <h2>Confirmed Hotel Bookings ({hotelBookings.length})</h2>
         {hotelBookings.length === 0 ? (
           <p className="dashboard-empty">No hotel bookings confirmed yet.</p>
@@ -420,14 +472,15 @@ function Dashboard() {
                 <p>Guests: {booking.guests}</p>
                 <p>Total: ${booking.totalPrice || 0}</p>
                 <p>Payment: {booking.paymentMethod}</p>
-                <p>Status: {booking.paymentStatus} · {booking.bookingStatus}</p>
+                <p>
+                  Status: {booking.paymentStatus} · {booking.bookingStatus}
+                </p>
                 <p>Reference: {booking.bookingReference}</p>
               </article>
             ))}
           </div>
         )}
       </section>
-
       <section className="dashboard-card">
         <h2>Wishlist ({wishlist.length})</h2>
         {wishlist.length === 0 ? (
