@@ -7,7 +7,6 @@ import { loadUserTrips, saveUserTrips } from "./utils/trips";
 import "./Planner.css";
 
 const WEATHER_API_BASE = "https://api.openweathermap.org/data/2.5/weather";
-const DEFAULT_WEATHER_API_KEY = "b0de676fca853faaf818b515e2940193"; // demo only
 
 function normalizeDestinationQuery(rawDestination) {
   if (!rawDestination) return "";
@@ -135,8 +134,14 @@ function Planner() {
       setWeatherLoading(true);
       setWeatherError("");
 
-      let apiKey = process.env.REACT_APP_WEATHER_API_KEY;
-      if (!apiKey) apiKey = DEFAULT_WEATHER_API_KEY;
+      const apiKey = process.env.REACT_APP_WEATHER_API_KEY;
+
+      if (!apiKey) {
+        setWeatherResult(null);
+        setWeatherError("Weather API key is missing. Please set REACT_APP_WEATHER_API_KEY in .env.");
+        setWeatherLoading(false);
+        return;
+      }
 
       try {
         const response = await fetch(
