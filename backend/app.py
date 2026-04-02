@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
+import requests as http_req
 from pathlib import Path
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -383,6 +384,36 @@ def chat_message():
         return jsonify({"error": str(exc)}), 502
 
     return jsonify(result)
+
+
+@app.post("/weather-ai")
+def weather_ai_suggestions():
+    payload = request.get_json(silent=True) or {}
+    city = (payload.get("city") or "").strip()
+    weather = (payload.get("weather") or "").strip()
+    temp = payload.get("temp")
+
+    if not city or not weather or temp is None:
+        return jsonify({"error": "city, weather, and temp are required"}), 400
+
+    prompt = (
+        f"Suggest 4 simple things to do in {city} when the weather is {weather} "
+        f"and temperature is {temp}\u00b0C."
+    )
+
+    try:
+        ollama_resp = http_req.post(
+            "http://localhost:11434/api/generate",
+            json={"model": "gemma3:1b", "prompt": prompt, "stream": False},
+            timeout=60,
+        )
+        ollama_resp.raise_for_status()
+        suggestions = ollama_resp.json().get("response", "")
+        return jsonify({"suggestions": suggestions})
+    except http_req.exceptions.ConnectionError:
+        return jsonify({"error": "Ollama is not running. Start it with: ollama serve"}), 503
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
 
 
 if __name__ == "__main__":
