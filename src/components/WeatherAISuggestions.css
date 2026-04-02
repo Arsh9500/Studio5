@@ -1,0 +1,70 @@
+.weather-ai-suggestions {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(155, 176, 210, 0.45);
+  text-align: left;
+}
+
+.weather-ai-suggestions h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: #0b1220;
+}
+
+.weather-ai-subtitle {
+  font-size: 0.82rem;
+  color: #475569;
+  margin: 0 0 0.75rem;
+}
+
+/* Loading */
+.weather-ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.weather-ai-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(51, 65, 85, 0.25);
+  border-top-color: #334155;
+  border-radius: 50%;
+  animation: wai-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes wai-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error */
+.weather-ai-error {
+  color: #dc2626;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+/* Content */
+.weather-ai-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.weather-ai-line {
+  font-size: 0.9rem;
+  color: #1e293b;
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  border-left: 3px solid rgba(96, 130, 200, 0.4);
+  border-radius: 0 6px 6px 0;
+  background: rgba(241, 245, 249, 0.8);
+  line-height: 1.5;
+}

@@ -190,10 +190,37 @@ export function AuthProvider({ children }) {
   const getAllUsers = async () => {
     try {
       const snap = await getDocs(collection(db, "users"));
-      return snap.docs.map((entry) => entry.data());
+      return {
+        ok: true,
+        data: snap.docs.map((entry) => ({ id: entry.id, ...entry.data() })),
+      };
     } catch (error) {
       console.error("getAllUsers failed", error);
-      return [];
+      return {
+        ok: false,
+        data: [],
+        error: error?.message || "Could not load users from Firestore.",
+      };
+    }
+  };
+
+  const updateUserRole = async (uid, role) => {
+    if (!user || user.role !== "admin") {
+      return { ok: false, error: "Admin access required." };
+    }
+
+    if (!uid || !["user", "admin"].includes(role)) {
+      return { ok: false, error: "Invalid role update request." };
+    }
+
+    try {
+      await updateDoc(doc(db, "users", uid), {
+        role,
+        updatedAt: serverTimestamp(),
+      });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message || "Could not update role." };
     }
   };
 
@@ -225,7 +252,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, register, login, loginWithGoogle, logout, updateUserName, getAllUsers }}>
+    <AuthContext.Provider value={{ user, register, login, loginWithGoogle, logout, updateUserName, getAllUsers, updateUserRole }}>
       {children}
     </AuthContext.Provider>
   );
