@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useItinerary } from "./context/ItineraryContext";
 import { requestGeminiReply } from "./services/geminiService";
 import { requestPlacesReply, buildPlaceMapLink } from "./services/placesService";
+import WeatherAISuggestions from "./components/WeatherAISuggestions";
 import "./Weather.css";
 
 // Replace with your own free API key from https://openweathermap.org (or another provider)
@@ -567,6 +568,14 @@ function Weather() {
               )}
             </div>
           </div>
+        )}
+
+        {result && (
+          <WeatherAISuggestions
+            city={result.name || location}
+            weather={result.weather?.[0]?.description || ""}
+            temp={Math.round(result.main?.temp || 0)}
+          />
         )}
 
         {result && todayForecast.length > 0 && (

@@ -14,12 +14,28 @@ import Budget from "./Budget";
 import Profile from "./Profile";
 import Weather from "./Weather";
 import Dashboard from "./Dashboard";
+import Admin from "./Admin";
 
 // Guard: redirect to register if not logged in (keeps "from" path for after login)
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
   const location = useLocation();
   if (!user) return <Navigate to="/register" state={{ from: location.pathname }} replace />;
+  return children;
+}
+
+function AdminRoute({ children }) {
+  const { user } = useAuth();
+  const location = useLocation();
+
+  if (!user) {
+    return <Navigate to="/register" state={{ from: location.pathname }} replace />;
+  }
+
+  if (user.role !== "admin") {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 }
 
@@ -41,6 +57,7 @@ function App() {
             <Route path="/weather" element={<ProtectedRoute><Weather /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
           </Routes>
         </BrowserRouter>
       </ItineraryProvider>
