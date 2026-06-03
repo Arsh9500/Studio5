@@ -9,6 +9,7 @@ import {
   confirmCryptoPayment,
   connectCryptoWallet,
   estimateEthAmount,
+  getMetaMaskInstallUrl,
   getCryptoPaymentConfig,
   isWalletAvailable,
   sendCryptoPayment,
@@ -570,6 +571,8 @@ out center tags 24;
   }, [bookingForm.guests, selectedNightlyRate, selectedStayNights]);
 
   const cryptoPaymentConfig = useMemo(() => getCryptoPaymentConfig(), []);
+  const metaMaskInstallUrl = useMemo(() => getMetaMaskInstallUrl(), []);
+  const walletAvailable = isWalletAvailable();
 
   const estimatedCryptoAmount = useMemo(
     () => estimateEthAmount(totalPrice),
@@ -656,6 +659,7 @@ out center tags 24;
       setWalletStatus(`Wallet connected: ${connectedWallet.address.slice(0, 6)}...${connectedWallet.address.slice(-4)}`);
     } catch (error) {
       setWalletStatus(error?.message || "Could not connect wallet.");
+      setPaymentErrors((prev) => ({ ...prev, crypto: "" }));
     }
   };
 
@@ -682,8 +686,7 @@ out center tags 24;
       const nextErrors = {};
       if (!isWalletAvailable()) {
         nextErrors.crypto = "MetaMask is required for blockchain payments.";
-      }
-      if (!walletInfo.address) {
+      } else if (!walletInfo.address) {
         nextErrors.crypto = "Connect your crypto wallet before paying.";
       }
       if (!cryptoPaymentConfig.paymentAddress) {
@@ -1135,6 +1138,16 @@ out center tags 24;
                       </p>
                     )}
                     {walletStatus && <p className="wallet-status">{walletStatus}</p>}
+                    {!walletAvailable && (
+                      <a
+                        className="wallet-install-link"
+                        href={metaMaskInstallUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Install MetaMask Wallet
+                      </a>
+                    )}
                     {paymentErrors.crypto && <small className="crypto-payment-error">{paymentErrors.crypto}</small>}
                   </div>
                 )}
