@@ -14,6 +14,9 @@ const QUICK_SUGGESTIONS = [
   "Find hotels in Queenstown",
   "Show tourist places in Auckland",
   "Nearby attractions",
+  "Best way to go from Auckland to Rotorua",
+  "Packing list for my trip",
+  "Show my trip timeline",
   "Budget travel ideas",
 ];
 const LOCAL_TRAVEL_GUIDES = {
@@ -92,6 +95,7 @@ function normalizeStoredMessage(message) {
     role: message.sender === "user" ? "user" : "bot",
     text: message.text,
     places: Array.isArray(message.placeResults) ? message.placeResults : [],
+    timeline: Array.isArray(message.timeline) ? message.timeline : [],
     relatedSearchType: message.relatedSearchType || "general",
     timestamp: message.timestamp,
   };
@@ -110,6 +114,170 @@ function extractKnownLocation(text) {
   );
 
   return destinationMatch?.city?.toLowerCase() || null;
+}
+
+function extractRoutePlaces(text) {
+  const normalized = text.trim();
+  const patterns = [
+    /(?:from|go from)\s+(.+?)\s+(?:to|2)\s+(.+?)(?:\?|$)/i,
+    /(?:between)\s+(.+?)\s+(?:and|&)\s+(.+?)(?:\?|$)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match?.[1] && match?.[2]) {
+      return {
+        origin: match[1].replace(/\b(best way|travel|transport|route)\b/gi, "").trim(),
+        destination: match[2].replace(/\b(by bus|by train|by car|transport|route)\b/gi, "").trim(),
+      };
+    }
+  }
+
+  return { origin: "", destination: "" };
+}
+
+function inferPreference(text, options) {
+  return options.find((option) => text.includes(option.toLowerCase())) || "";
+}
+
+function buildPreferenceSummary(message) {
+  const text = message.toLowerCase();
+  const locationKey = extractKnownLocation(message);
+  const destinationMatch = destinations.find(
+    (item) =>
+      text.includes(item.city.toLowerCase()) ||
+      text.includes(item.name.toLowerCase()) ||
+      text.includes(item.country.toLowerCase())
+  );
+
+  return {
+    budget: inferPreference(text, ["Low", "Medium", "High", "Budget", "Affordable", "Luxury"]),
+    type: inferPreference(text, ["Adventure", "Beach", "Culture", "City", "Nature", "Food", "Family"]),
+    locationKey,
+    destination: destinationMatch || null,
+  };
+}
+
+function scoreDestination(destination, preferences) {
+  let score = 0;
+  const budget = preferences.budget.toLowerCase();
+  const type = preferences.type.toLowerCase();
+
+  if (preferences.destination?.id === destination.id) score += 5;
+  if (preferences.locationKey && destination.city.toLowerCase().includes(preferences.locationKey)) score += 4;
+  if (budget && destination.budgetLevel.toLowerCase().includes(budget)) score += 3;
+  if ((budget === "budget" || budget === "affordable") && destination.budgetLevel !== "High") score += 2;
+  if (type && destination.travelType.toLowerCase().includes(type)) score += 3;
+  if (type && destination.description.toLowerCase().includes(type)) score += 1;
+
+  return score;
+}
+
+function buildPersonalizedAttractionReply(message) {
+  const preferences = buildPreferenceSummary(message);
+  const ranked = [...destinations]
+    .map((destination) => ({ destination, score: scoreDestination(destination, preferences) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  const usefulRanked = ranked.some((item) => item.score > 0)
+    ? ranked
+    : destinations.slice(0, 3).map((destination) => ({ destination, score: 0 }));
+
+  const preferenceText = [
+    preferences.budget ? `budget: ${preferences.budget}` : "",
+    preferences.type ? `type: ${preferences.type}` : "",
+    preferences.destination ? `location: ${preferences.destination.name}` : "",
+  ].filter(Boolean);
+
+  const lines = usefulRanked.map(({ destination }, index) => {
+    const cost = destination.estimatedCosts;
+    return `${index + 1}. ${destination.name}: ${destination.attractions.join(", ")}. Best for ${destination.travelType.toLowerCase()} travel; typical local transport is about ${formatCurrency(cost.localTransportPerDay)} per day.`;
+  });
+
+  return {
+    reply: `Here are AI-style attraction suggestions${preferenceText.length ? ` for ${preferenceText.join(", ")}` : ""}:\n${lines.join("\n")}\n\nFor tighter results, ask with budget, type, and location, for example: "medium budget culture attractions in Paris".`,
+    places: usefulRanked.flatMap(({ destination }) =>
+      destination.attractions.slice(0, 2).map((name) => ({
+        name,
+        address: `${destination.city}, ${destination.country}`,
+        rating: null,
+      }))
+    ),
+    searchType: "personalized_attractions",
+  };
+}
+
+function buildTransportReply(message) {
+  const { origin, destination } = extractRoutePlaces(message);
+  const routeLabel = origin && destination ? `${origin} to ${destination}` : "your route";
+
+  return {
+    reply: `For ${routeLabel}, compare these transport options:\n1. Public transport: usually best for lower budgets and city-to-city travel. Check bus or train departures first because schedules can change.\n2. Car or rideshare: best when you have luggage, late arrivals, or stops between places.\n3. Shuttle or transfer: best for airport trips, groups, and predictable door-to-door timing.\n\nMy quick pick: choose public transport for cost, a car for flexibility, and a shuttle for the easiest experience. You can open the Transport page for a full AI route plan with time, comfort, and budget details.`,
+    places: [],
+    searchType: "transport",
+  };
+}
+
+function buildPackingReply(message) {
+  const text = message.toLowerCase();
+  const isBeach = text.includes("beach") || text.includes("tropical") || text.includes("bali") || text.includes("goa");
+  const isCold = text.includes("cold") || text.includes("winter") || text.includes("london") || text.includes("new york");
+  const isAdventure = text.includes("adventure") || text.includes("hike") || text.includes("mountain");
+
+  const essentials = ["Passport or ID", "Booking confirmations", "Phone charger and adapter", "Daily medication", "Reusable water bottle"];
+  const clothing = isCold
+    ? ["Warm jacket", "Layered tops", "Comfortable waterproof shoes"]
+    : ["Comfortable walking shoes", "Light layers", "Sleepwear"];
+  const extras = [
+    isBeach ? "Swimwear and sunscreen" : "Compact rain jacket",
+    isAdventure ? "Day pack and first-aid basics" : "Small day bag",
+    "Toiletries in travel-size containers",
+  ];
+
+  return {
+    reply: `AI packing suggestions:\nEssentials: ${essentials.join(", ")}.\nClothing: ${clothing.join(", ")}.\nTrip extras: ${extras.join(", ")}.\n\nTip: keep documents, medication, one outfit, and chargers in your carry-on so delays do not break the first day of your trip.`,
+    places: [],
+    searchType: "packing",
+  };
+}
+
+function buildTimelineItems(trips, bookings) {
+  const tripItems = trips.map((trip) => ({
+    date: trip.startDate || "Date not set",
+    title: trip.destination || "Saved trip",
+    detail: trip.endDate ? `${trip.startDate} to ${trip.endDate}` : "Trip date saved",
+  }));
+
+  const bookingItems = bookings.map((booking) => ({
+    date: booking.checkInDate || booking.createdAt || "Date not set",
+    title: booking.hotelName || "Hotel booking",
+    detail: `${booking.destination || "Destination"}${booking.checkOutDate ? `, checkout ${booking.checkOutDate}` : ""}`,
+  }));
+
+  return [...tripItems, ...bookingItems]
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+    .slice(0, 8);
+}
+
+function buildTimelineReply(trips, bookings) {
+  const timeline = buildTimelineItems(trips, bookings);
+
+  if (!timeline.length) {
+    return {
+      reply: "Your trip timeline is empty right now. Add trips in the Planner or book a hotel, then I can show your schedule here.",
+      places: [],
+      searchType: "timeline",
+      timeline: [],
+    };
+  }
+
+  return {
+    reply: "Here is your trip timeline view based on saved trips and hotel bookings.",
+    places: [],
+    searchType: "timeline",
+    timeline,
+  };
 }
 
 function buildMapSearchUrl(query) {
@@ -304,6 +472,31 @@ function Chatbot({ user }) {
     const locationKey = extractKnownLocation(text);
     const localGuide = locationKey ? LOCAL_TRAVEL_GUIDES[locationKey] : null;
 
+    if (text.includes("timeline") || text.includes("schedule") || text.includes("trip plan view")) {
+      return buildTimelineReply(sortedTrips, hotelBookings);
+    }
+
+    if (text.includes("packing") || text.includes("pack ") || text.includes("pack for")) {
+      return buildPackingReply(message);
+    }
+
+    if (
+      text.includes("transport") ||
+      text.includes("best way") ||
+      text.includes("route") ||
+      text.includes("go from") ||
+      text.includes("travel from")
+    ) {
+      return buildTransportReply(message);
+    }
+
+    if (
+      (text.includes("suggest") || text.includes("recommend") || text.includes("personal")) &&
+      (text.includes("attraction") || text.includes("places to visit") || text.includes("things to do"))
+    ) {
+      return buildPersonalizedAttractionReply(message);
+    }
+
     if (text.includes("receipt") || text.includes("latest booking") || text.includes("booking confirmation")) {
       return {
         reply: buildBookingChatMessage(latestHotelBooking),
@@ -466,8 +659,26 @@ function Chatbot({ user }) {
         timestamp: message.timestamp,
         relatedSearchType: message.relatedSearchType,
         places: message.places,
+        timeline: message.timeline,
       });
     }
+  };
+
+  const shouldAnswerLocally = (message) => {
+    const text = message.toLowerCase();
+    return (
+      text.includes("timeline") ||
+      text.includes("schedule") ||
+      text.includes("packing") ||
+      text.includes("pack for") ||
+      text.includes("best way") ||
+      text.includes("route") ||
+      text.includes("go from") ||
+      text.includes("travel from") ||
+      text.includes("transport options") ||
+      ((text.includes("suggest") || text.includes("recommend") || text.includes("personal")) &&
+        (text.includes("attraction") || text.includes("places to visit") || text.includes("things to do")))
+    );
   };
 
   const handleSendMessage = async (presetText) => {
@@ -488,16 +699,19 @@ function Chatbot({ user }) {
     setIsLoading(true);
 
     try {
-      const result = await sendChatMessage({
-        message: text,
-        context: buildChatContext(),
-      });
+      const result = shouldAnswerLocally(text)
+        ? getLocalFallbackReply(text)
+        : await sendChatMessage({
+            message: text,
+            context: buildChatContext(),
+          });
 
       const botMessage = {
         id: `bot-${Date.now()}`,
         role: "bot",
         text: result.reply,
         places: Array.isArray(result.places) ? result.places : [],
+        timeline: Array.isArray(result.timeline) ? result.timeline : [],
         relatedSearchType: result.searchType || "general",
         timestamp: new Date().toISOString(),
       };
@@ -510,6 +724,7 @@ function Chatbot({ user }) {
         role: "bot",
         text: fallback.reply,
         places: fallback.places,
+        timeline: fallback.timeline || [],
         relatedSearchType: fallback.searchType,
         timestamp: new Date().toISOString(),
       };
@@ -608,6 +823,20 @@ function Chatbot({ user }) {
                               Search Hotels
                             </button>
                           </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+
+                {message.role === "bot" && Array.isArray(message.timeline) && message.timeline.length > 0 && (
+                  <div className="chatbot-timeline" aria-label="Trip timeline">
+                    {message.timeline.map((item, index) => (
+                      <article key={`${item.date}-${item.title}-${index}`} className="chatbot-timeline-item">
+                        <span className="chatbot-timeline-date">{item.date}</span>
+                        <div>
+                          <h4>{item.title}</h4>
+                          <p>{item.detail}</p>
                         </div>
                       </article>
                     ))}
