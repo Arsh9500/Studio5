@@ -101,8 +101,21 @@ function Transport() {
             <p>
               Create polished route plans, cost estimates, travel time projections, and AI-guided transport recommendations tailored to your journey.
             </p>
+            <div className="hero-feature-grid">
+              <article className="hero-feature">
+                <strong>Fast route matching</strong>
+                <span>Find the best transit option for your schedule and budget.</span>
+              </article>
+              <article className="hero-feature">
+                <strong>Multi-mode support</strong>
+                <span>Compare flights, trains, buses, and car rentals in one place.</span>
+              </article>
+              <article className="hero-feature">
+                <strong>Clear cost view</strong>
+                <span>Get AI-backed estimates and booking suggestions instantly.</span>
+              </article>
+            </div>
           </div>
-          <div className="transport-hero-visual" aria-hidden="true" />
         </div>
 
         <nav className="transport-nav">
