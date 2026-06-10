@@ -1,7 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
-import json
 import requests as http_req
 import os
 from pathlib import Path
@@ -437,13 +436,35 @@ def recommend_attractions():
         for value in preferences.values()
         if value is not None and str(value).strip()
     )
+    live_places = []
+    live_context = ""
+
+    try:
+        places_result = search_places(
+            f"live events attractions things to do in {destination}",
+            "places",
+            context={"selectedDestination": destination},
+        )
+        live_places = places_result.get("places", [])[:5]
+        if live_places:
+            live_context = "; ".join(
+                f"{place.get('name')} ({place.get('address', 'address unavailable')})"
+                for place in live_places
+                if place.get("name")
+            )
+    except Exception:
+        # Ollama can still provide recommendations when Google Places is not configured or reachable.
+        live_places = []
 
     prompt = (
-        "Recommend 5 tourist attractions for a travel itinerary. "
-        "Use the destination and preferences to personalize the list. "
+        "Recommend 5 attractions or live-event-style things to do for a travel itinerary. "
+        "Use the destination, trip preferences, and any Google Places context to personalize the list. "
+        "If Google context is provided, prefer those live map/search results. "
         "Return only valid JSON as an array of objects with name and reason fields. "
         f"Destination: {destination}. "
-        f"Preferences: {preference_text or 'general sightseeing and memorable local experiences'}."
+        f"Travel date context: {time.strftime('%Y-%m-%d')}. "
+        f"Preferences: {preference_text or 'general sightseeing and memorable local experiences'}. "
+        f"Google Places context: {live_context or 'not available'}."
     )
 
     try:
@@ -455,7 +476,7 @@ def recommend_attractions():
         ollama_resp.raise_for_status()
         raw_response = ollama_resp.json().get("response", "")
         attractions = parse_attraction_response(raw_response)
-        return jsonify({"attractions": attractions, "raw": raw_response})
+        return jsonify({"attractions": attractions, "livePlaces": live_places, "raw": raw_response})
     except http_req.exceptions.ConnectionError:
         return jsonify({"error": "Ollama is not running. Start it with: ollama serve"}), 503
     except http_req.exceptions.ReadTimeout:
@@ -635,8 +656,51 @@ def weather_ai_suggestions():
         return jsonify({"error": "city, weather, and temp are required"}), 400
 
     prompt = (
-        f"Suggest 4 simple things to do in {city} when the weather is {weather} "
-        f"and temperature is {temp}\u00b0C."
+        f"Provide four professional and concise activity recommendations for a visitor in {city} "
+        f"given the current weather of {weather} and a temperature of {temp}\u00b0C. "
+        "Use complete sentences, keep the tone polished, and format each recommendation as a separate line."
+    )
+
+    try:
+        ollama_resp = http_req.post(
+            "http://localhost:11434/api/generate",
+            json={"model": "gemma3:1b", "prompt": prompt, "stream": False},
+            timeout=60,
+        )
+        ollama_resp.raise_for_status()
+        suggestions = ollama_resp.json().get("response", "")
+        return jsonify({"suggestions": suggestions})
+    except http_req.exceptions.ConnectionError:
+        return jsonify({"error": "Ollama is not running. Start it with: ollama serve"}), 503
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.post("/transport-ai")
+def transport_ai_suggestions():
+    payload = request.get_json(silent=True) or {}
+    origin = (payload.get("origin") or "").strip()
+    destination = (payload.get("destination") or "").strip()
+    travel_date = (payload.get("date") or "").strip()
+    preference = (payload.get("preference") or "balanced").strip()
+    budget = (payload.get("budget") or "").strip()
+
+    if not origin or not destination:
+        return jsonify({"error": "origin and destination are required"}), 400
+
+    prompt = (
+        "You are a smart transport assistant for a travel planning website. "
+        f"The user needs directions from {origin} to {destination}. "
+        f"Travel date: {travel_date or 'not specified'}. "
+        f"Preferred route type: {preference}. "
+        f"Budget guidance: {budget or 'moderate'}. "
+        "Provide a transport recommendation that includes:\n"
+        "- best route options (public transit, rideshare, taxi, shuttle, or train)\n"
+        "- estimated travel time for each option\n"
+        "- cost estimate for each option\n"
+        "- personalized advice for the chosen preference\n"
+        "- a short smart tip for the traveler\n"
+        "Answer in plain text suitable for display in a transport assistant page."
     )
 
     try:
@@ -659,6 +723,246 @@ def weather_ai_suggestions():
                 )
             }
         ), 504
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+def format_duration(minutes: int) -> str:
+    hours = minutes // 60
+    mins = minutes % 60
+    return f"{hours}h {mins}m" if hours else f"{mins}m"
+
+
+def calculate_arrival_time(departure_time: str, duration_minutes: int) -> str:
+    """Calculate arrival time by adding duration to departure time."""
+    try:
+        if departure_time == "Anytime":
+            return "Flexible"
+        hours, mins = map(int, departure_time.split(':'))
+        total_minutes = hours * 60 + mins + duration_minutes
+        arrival_hours = (total_minutes // 60) % 24
+        arrival_mins = total_minutes % 60
+        return f"{arrival_hours:02d}:{arrival_mins:02d}"
+    except:
+        return "N/A"
+
+
+def create_booking_url(origin, destination, transport_type, provider, departure_date):
+    """Generate booking URLs to popular travel booking websites (global coverage)"""
+    if transport_type == "flight":
+        # Google Flights - works globally for flight searches
+        return f"https://www.google.com/flights?fPrt1={origin}&fPrt2={destination}&dDate1={departure_date}&travel_type=r"
+    elif transport_type == "train":
+        # Skyscanner for trains - global coverage with train schedules
+        return f"https://www.skyscanner.com/transport/trains/{origin.lower()}/{destination.lower()}/{departure_date}/"
+    elif transport_type == "bus":
+        # Busbud - operates in 100+ countries globally for bus bookings
+        return f"https://www.busbud.com/en/search?fn={origin}&tn={destination}&outDate={departure_date}"
+    else:
+        # Kayak car rentals - global coverage for car rental searches
+        return f"https://www.kayak.com/cars.html?startDate={departure_date}&endLocation={destination}&startLocation={origin}"
+
+
+def generate_booking_options(origin, destination, departure_date, return_date, transport_type, travelers, cabin):
+    """Generate realistic booking options using AI for accurate travel times and prices."""
+    api_key = os.getenv("GROQ_API_KEY")
+    
+    # Fallback to hardcoded options if API is not available
+    if not api_key:
+        return generate_booking_options_fallback(origin, destination, departure_date, return_date, transport_type, travelers, cabin)
+    
+    try:
+        prompt = f"""Generate realistic transport booking options for:
+- Origin: {origin}
+- Destination: {destination}
+- Date: {departure_date}
+- Transport Type: {transport_type}
+- Travelers: {travelers}
+
+Return a JSON array with exactly 2-3 booking options. Each option must have:
+- provider: (company name)
+- departureTime: (HH:MM format, realistic for the route)
+- arrivalTime: (HH:MM format, must be after departure + realistic travel time)
+- price: ($X format)
+- duration: (Xh Ym format, realistic for {transport_type} between these cities)
+
+For {transport_type}, typical durations are:
+- Flight: 1-4 hours + 1-2 hours layover time
+- Train: 2-8 hours depending on distance
+- Bus: 3-12 hours depending on distance
+- Car rental: 2-10 hours depending on distance
+
+Return ONLY valid JSON array, no markdown or explanation."""
+
+        endpoint = "https://api.groq.com/openai/v1/chat/completions"
+        payload = {
+            "model": "llama-3.1-8b-instant",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a travel booking assistant. Generate realistic transport booking options with accurate times and prices. Return only valid JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            "temperature": 0.8,
+            "max_tokens": 1000,
+        }
+        
+        response = http_req.post(
+            endpoint,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        body = response.json()
+        
+        choices = body.get("choices") or []
+        if not choices:
+            return generate_booking_options_fallback(origin, destination, departure_date, return_date, transport_type, travelers, cabin)
+        
+        text = (choices[0].get("message") or {}).get("content", "").strip()
+        
+        # Extract JSON from response
+        json_match = text
+        if "```" in text:
+            json_match = text.split("```")[1].replace("json", "").strip()
+        
+        try:
+            options_data = json.loads(json_match)
+            if isinstance(options_data, list):
+                formatted_options = []
+                for opt in options_data:
+                    formatted_options.append({
+                        "provider": opt.get("provider", "Transport Co"),
+                        "mode": transport_type.capitalize(),
+                        "route": f"{origin} → {destination}",
+                        "departureTime": opt.get("departureTime", "N/A"),
+                        "arrivalTime": opt.get("arrivalTime", "N/A"),
+                        "duration": opt.get("duration", "N/A"),
+                        "price": opt.get("price", "$0"),
+                        "cabin": cabin.capitalize(),
+                        "travelers": travelers,
+                        "bookingUrl": create_booking_url(origin, destination, transport_type, opt.get("provider", ""), departure_date),
+                    })
+                return formatted_options
+        except:
+            pass
+    except:
+        pass
+    
+    # Fallback to default options
+    return generate_booking_options_fallback(origin, destination, departure_date, return_date, transport_type, travelers, cabin)
+
+
+def generate_booking_options_fallback(origin, destination, departure_date, return_date, transport_type, travelers, cabin):
+    options = []
+    if transport_type == "flight":
+        providers = ["AeroJet", "SkyConnect", "BlueWing"]
+        base_price = 120
+        for idx, provider in enumerate(providers, start=1):
+            depart = f"{8 + idx}:15"
+            duration = 95 + idx * 15
+            options.append({
+                "provider": provider,
+                "mode": "Flight",
+                "route": f"{origin} → {destination}",
+                "departureTime": depart,
+                "arrivalTime": calculate_arrival_time(depart, duration),
+                "duration": format_duration(duration),
+                "price": f"${base_price + idx * 40}",
+                "cabin": cabin.capitalize(),
+                "travelers": travelers,
+                "bookingUrl": create_booking_url(origin, destination, transport_type, provider, departure_date),
+            })
+    elif transport_type == "train":
+        providers = ["National Rail", "ExpressLine"]
+        base_price = 35
+        for idx, provider in enumerate(providers, start=1):
+            depart = f"{7 + idx}:00"
+            duration = 180 + idx * 20
+            options.append({
+                "provider": provider,
+                "mode": "Train",
+                "route": f"{origin} → {destination}",
+                "departureTime": depart,
+                "arrivalTime": calculate_arrival_time(depart, duration),
+                "duration": format_duration(duration),
+                "price": f"${base_price + idx * 15}",
+                "cabin": "Standard",
+                "travelers": travelers,
+                "bookingUrl": create_booking_url(origin, destination, transport_type, provider, departure_date),
+            })
+    elif transport_type == "bus":
+        providers = ["CityBus", "Comfort Coach"]
+        base_price = 18
+        for idx, provider in enumerate(providers, start=1):
+            depart = f"{6 + idx * 2}:30"
+            duration = 240 + idx * 30
+            options.append({
+                "provider": provider,
+                "mode": "Bus",
+                "route": f"{origin} → {destination}",
+                "departureTime": depart,
+                "arrivalTime": calculate_arrival_time(depart, duration),
+                "duration": format_duration(duration),
+                "price": f"${base_price + idx * 8}",
+                "cabin": "Standard",
+                "travelers": travelers,
+                "bookingUrl": create_booking_url(origin, destination, transport_type, provider, departure_date),
+            })
+    else:
+        providers = ["RideNow", "CityShare"]
+        base_price = 40
+        for idx, provider in enumerate(providers, start=1):
+            depart = "Anytime"
+            duration = 55 + idx * 10
+            options.append({
+                "provider": provider,
+                "mode": "Rideshare",
+                "route": f"{origin} → {destination}",
+                "departureTime": depart,
+                "arrivalTime": "Flexible",
+                "duration": format_duration(duration),
+                "price": f"${base_price + idx * 20}",
+                "cabin": cabin.capitalize(),
+                "travelers": travelers,
+                "bookingUrl": create_booking_url(origin, destination, transport_type, provider, departure_date),
+            })
+    return options
+
+
+@app.post("/transport-booking")
+def transport_booking_options():
+    payload = request.get_json(silent=True) or {}
+    origin = (payload.get("origin") or "").strip()
+    destination = (payload.get("destination") or "").strip()
+    departure_date = (payload.get("departureDate") or "").strip()
+    return_date = (payload.get("returnDate") or "").strip()
+    transport_type = (payload.get("transportType") or "flight").strip().lower()
+    travelers = int(payload.get("travelers") or 1)
+    cabin = (payload.get("cabin") or "economy").strip()
+
+    if not origin or not destination or not departure_date:
+        return jsonify({"error": "origin, destination, and departureDate are required"}), 400
+
+    try:
+        options = generate_booking_options(
+            origin,
+            destination,
+            departure_date,
+            return_date,
+            transport_type,
+            travelers,
+            cabin,
+        )
+        return jsonify({"options": options})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 502
 

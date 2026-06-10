@@ -6,6 +6,8 @@ import { loadUserTrips, saveUserTrips } from "./utils/trips";
 import { loadUserBudgets, saveUserBudgets } from "./utils/budgets";
 import { loadUserWishlist, saveUserWishlist } from "./utils/wishlist";
 import { categorizeTrips } from "./utils/tripStatus";
+import { destinations } from "./data/destinations";
+import { requestGeminiReply } from "./services/geminiService";
 import {
   deleteSharedTrip,
   formatCollaboratorEmails,
@@ -43,6 +45,55 @@ function money(value) {
   return `$${Number(value || 0).toLocaleString()}`;
 }
 
+function normalizeText(value) {
+  return String(value || "").toLowerCase().trim();
+}
+
+function getTripDays(trip) {
+  if (!trip?.startDate) return 1;
+  const start = new Date(trip.startDate);
+  const end = trip.endDate ? new Date(trip.endDate) : start;
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
+  const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  return Math.max(days, 1);
+}
+
+function findDestinationMeta(destinationName) {
+  const normalized = normalizeText(destinationName);
+  if (!normalized) return null;
+
+  return (
+    destinations.find((destination) => {
+      const labels = [destination.name, destination.city, destination.country, destination.id].map(normalizeText);
+      return labels.some((label) => label && (normalized.includes(label) || label.includes(normalized)));
+    }) || null
+  );
+}
+
+function getUniqueDestinations(trips) {
+  return new Set(trips.map((trip) => normalizeText(trip.destination)).filter(Boolean));
+}
+
+function parseChallengeReply(reply, fallbackChallenges) {
+  const parsed = String(reply || "")
+    .split("\n")
+    .map((line) => line.replace(/^[-*\d.\s]+/, "").trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const match = line.match(/^([^:|-]+)[:|-]\s*(.+)$/);
+      if (!match) return null;
+      return {
+        id: `ai-${index}-${normalizeText(match[1]).replace(/\s+/g, "-")}`,
+        title: match[1].trim(),
+        prompt: match[2].trim(),
+        level: "AI Pick",
+      };
+    })
+    .filter(Boolean);
+
+  return parsed.length >= 2 ? parsed.slice(0, 4) : fallbackChallenges;
+}
+
 function Dashboard() {
   const { user } = useAuth();
   const displayName =
@@ -56,6 +107,7 @@ function Dashboard() {
   const [editingGroupTripId, setEditingGroupTripId] = useState("");
   const [status, setStatus] = useState("");
   const [shareMessage, setShareMessage] = useState("");
+  const [aiChallengeCards, setAiChallengeCards] = useState([]);
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [form, setForm] = useState({
     destination: "",
@@ -165,6 +217,161 @@ function Dashboard() {
 
     return list;
   }, [todayString, ongoingTrips, upcomingTrips]);
+
+  const achievements = useMemo(() => {
+    const plannedDestinations = getUniqueDestinations([...itineraryTrips, ...groupTrips]);
+    const beachVisits = completedTrips.filter((trip) => {
+      const destinationMeta = findDestinationMeta(trip.destination);
+      const tripText = normalizeText(`${trip.destination} ${trip.notes}`);
+      return destinationMeta?.travelType === "Beach" || /beach|coast|island|shore/.test(tripText);
+    }).length;
+    const groupPlansJoined = groupTrips.length;
+    const budgetWins = completedTrips.filter((trip) => {
+      const budget = Number(trip.budget) || 0;
+      const estimated = Number(trip.estimatedCost) || 0;
+      return budget > 0 && estimated > 0 && estimated <= budget;
+    }).length;
+
+    return [
+      {
+        id: "beaches",
+        title: "Beach Explorer",
+        detail: "Visited 5 beaches",
+        progress: beachVisits,
+        target: 5,
+      },
+      {
+        id: "completed",
+        title: "Passport Starter",
+        detail: "Completed 3 trips",
+        progress: completedTrips.length,
+        target: 3,
+      },
+      {
+        id: "planner",
+        title: "Route Builder",
+        detail: "Planned 5 unique destinations",
+        progress: plannedDestinations.size,
+        target: 5,
+      },
+      {
+        id: "budget",
+        title: "Budget Champion",
+        detail: "Finished 2 trips within budget",
+        progress: budgetWins,
+        target: 2,
+      },
+      {
+        id: "wishlist",
+        title: "Dream Collector",
+        detail: "Saved 5 wishlist ideas",
+        progress: wishlist.length,
+        target: 5,
+      },
+      {
+        id: "group",
+        title: "Crew Captain",
+        detail: "Created or joined 2 group plans",
+        progress: groupPlansJoined,
+        target: 2,
+      },
+    ].map((achievement) => ({
+      ...achievement,
+      unlocked: achievement.progress >= achievement.target,
+      percent: Math.min(100, Math.round((achievement.progress / achievement.target) * 100)),
+    }));
+  }, [completedTrips, groupTrips, itineraryTrips, wishlist.length]);
+
+  const localChallengeSuggestions = useMemo(() => {
+    const focusTrip = ongoingTrips[0] || upcomingTrips[0] || itineraryTrips[0] || groupTrips[0];
+    const focusMeta = findDestinationMeta(focusTrip?.destination);
+    const tripDays = getTripDays(focusTrip);
+    const attractions = focusMeta?.attractions || [];
+    const destinationLabel = focusTrip?.destination || wishlist[0] || "your next destination";
+    const plannedCount = itineraryTrips.length + groupTrips.length;
+    const challengeSeed = normalizeText(`${destinationLabel}-${plannedCount}-${wishlist.length}-${budgets.length}`);
+    const intensity = challengeSeed.length % 3;
+
+    const suggested = [
+      {
+        id: "three-places",
+        title: "Visit 3 places in one day",
+        prompt:
+          attractions.length >= 3
+            ? `Try ${attractions.slice(0, 3).join(", ")} in one day around ${destinationLabel}.`
+            : `Pick three nearby attractions in ${destinationLabel} and build a one-day route.`,
+        level: tripDays <= 2 ? "Sprint" : "AI Pick",
+      },
+      {
+        id: "local-flavor",
+        title: "Local flavor quest",
+        prompt: `Try one local meal, one market or cafe, and one evening walk in ${destinationLabel}.`,
+        level: intensity === 0 ? "Easy" : "Social",
+      },
+      {
+        id: "low-cost-day",
+        title: "Low-cost adventure day",
+        prompt: `Plan a day in ${destinationLabel} using public transport, free sights, and one paid highlight.`,
+        level: budgets.length ? "Budget Smart" : "Explorer",
+      },
+      {
+        id: "golden-hour",
+        title: "Golden-hour photo trail",
+        prompt: `Find a sunrise or sunset viewpoint, then capture three memorable photos before dinner.`,
+        level: focusMeta?.travelType || "Scenic",
+      },
+    ];
+
+    if (focusMeta?.travelType === "Beach") {
+      suggested.unshift({
+        id: "beach-loop",
+        title: "Beach trio challenge",
+        prompt: `Visit a beach, a viewpoint, and a waterfront food spot in ${destinationLabel}.`,
+        level: "Beach",
+      });
+    }
+
+    return suggested.slice(0, 4);
+  }, [budgets.length, groupTrips, itineraryTrips, ongoingTrips, upcomingTrips, wishlist]);
+
+  useEffect(() => {
+    let ignore = false;
+    const focusTrip = ongoingTrips[0] || upcomingTrips[0] || itineraryTrips[0] || groupTrips[0];
+
+    const loadAiChallenges = async () => {
+      setAiChallengeCards(localChallengeSuggestions);
+
+      try {
+        const result = await requestGeminiReply({
+          message:
+            "Suggest exactly four short gamified travel challenges. Use one line per challenge in this format: Title: action sentence. Include ideas like visiting three places in one day when relevant.",
+          context: {
+            destination: focusTrip?.destination || wishlist[0] || "",
+            dates: focusTrip?.startDate
+              ? `${focusTrip.startDate}${focusTrip.endDate ? ` to ${focusTrip.endDate}` : ""}`
+              : "",
+            notes: focusTrip?.notes || "",
+            wishlist,
+            tripCount: itineraryTrips.length + groupTrips.length,
+            savedBudgetPlans: budgets.length,
+          },
+        });
+
+        if (!ignore) {
+          setAiChallengeCards(parseChallengeReply(result.reply, localChallengeSuggestions));
+        }
+      } catch (_) {
+        if (!ignore) setAiChallengeCards(localChallengeSuggestions);
+      }
+    };
+
+    loadAiChallenges();
+    return () => {
+      ignore = true;
+    };
+  }, [budgets.length, groupTrips, itineraryTrips, localChallengeSuggestions, ongoingTrips, upcomingTrips, wishlist]);
+
+  const aiChallenges = aiChallengeCards.length ? aiChallengeCards : localChallengeSuggestions;
 
   const saveTripsToDb = (nextTrips) => {
     setTrips(nextTrips);
@@ -443,6 +650,7 @@ function Dashboard() {
         <nav className="dashboard-nav">
           <Link to="/">Home</Link>
           <Link to="/destinations">Destinations</Link>
+          <Link to="/transport">Transport</Link>
           <Link to="/profile">Profile</Link>
           <button type="button" onClick={() => exportTripsToPdf("My Travel Itinerary", [...itineraryTrips, ...groupTrips])}>
             Export All To PDF
@@ -483,6 +691,57 @@ function Dashboard() {
           <h3>{hotelBookings.length}</h3>
           <p>Hotel Bookings</p>
         </article>
+        <article>
+          <h3>{achievements.filter((achievement) => achievement.unlocked).length}</h3>
+          <p>Achievements</p>
+        </article>
+      </section>
+
+      <section className="dashboard-card dashboard-game-card">
+        <div className="dashboard-section-heading">
+          <div>
+            <h2>Travel Achievements</h2>
+            <p>Unlock badges as your saved trips, completed journeys, wishlist, and group plans grow.</p>
+          </div>
+        </div>
+        <div className="dashboard-achievement-grid">
+          {achievements.map((achievement) => (
+            <article
+              key={achievement.id}
+              className={`dashboard-achievement ${achievement.unlocked ? "unlocked" : ""}`}
+            >
+              <div className="dashboard-achievement-top">
+                <span>{achievement.unlocked ? "Unlocked" : "In Progress"}</span>
+                <strong>
+                  {Math.min(achievement.progress, achievement.target)}/{achievement.target}
+                </strong>
+              </div>
+              <h3>{achievement.title}</h3>
+              <p>{achievement.detail}</p>
+              <div className="dashboard-progress" aria-label={`${achievement.title} progress`}>
+                <span style={{ width: `${achievement.percent}%` }} />
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="dashboard-card dashboard-challenge-card">
+        <div className="dashboard-section-heading">
+          <div>
+            <h2>AI Suggested Challenges</h2>
+            <p>Fresh interactive goals based on your itinerary, wishlist, budgets, and destination style.</p>
+          </div>
+        </div>
+        <div className="dashboard-challenge-grid">
+          {aiChallenges.map((challenge) => (
+            <article key={challenge.id} className="dashboard-challenge">
+              <span>{challenge.level}</span>
+              <h3>{challenge.title}</h3>
+              <p>{challenge.prompt}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="dashboard-grid">

@@ -25,6 +25,7 @@ export async function saveUserChatMessage(uid, message) {
     timestamp: message.timestamp || new Date().toISOString(),
     relatedSearchType: message.relatedSearchType || "general",
     placeResults: Array.isArray(message.places) ? message.places.slice(0, 6) : [],
+    timeline: Array.isArray(message.timeline) ? message.timeline.slice(0, 8) : [],
   };
 
   try {

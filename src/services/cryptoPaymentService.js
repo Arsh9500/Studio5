@@ -4,6 +4,7 @@ const TRAVEL_API_BASE_URL = process.env.REACT_APP_TRAVEL_API_BASE_URL || "http:/
 const CRYPTO_PAYMENT_ADDRESS = process.env.REACT_APP_CRYPTO_PAYMENT_ADDRESS || "";
 const CRYPTO_USD_PER_ETH = Number(process.env.REACT_APP_CRYPTO_USD_PER_ETH || 3000);
 const REQUIRED_CHAIN_ID = process.env.REACT_APP_CRYPTO_CHAIN_ID || "";
+const METAMASK_INSTALL_URL = "https://metamask.io/download/";
 
 function getEthereumProvider() {
   return typeof window !== "undefined" ? window.ethereum : null;
@@ -21,6 +22,10 @@ function ethToWeiHex(ethAmount) {
 
 export function isWalletAvailable() {
   return Boolean(getEthereumProvider());
+}
+
+export function getMetaMaskInstallUrl() {
+  return METAMASK_INSTALL_URL;
 }
 
 export function getCryptoPaymentConfig() {
