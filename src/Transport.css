@@ -11,52 +11,54 @@
 
 .transport-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(200px, 320px);
-  gap: 24px;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 20px;
   padding: 28px;
   border-radius: 30px;
-  background: linear-gradient(135deg, #0b3d9b 0%, #0e57d0 40%, #2f79f0 100%);
-  box-shadow: 0 24px 60px rgba(15, 31, 58, 0.18);
+  background: linear-gradient(135deg, #0f4fd6 0%, #2f79f0 45%, #4c96ff 100%);
+  box-shadow: 0 24px 60px rgba(15, 31, 58, 0.16);
   color: #fff;
   margin-bottom: 20px;
 }
 
 .transport-hero-copy h1 {
-  margin: 0 0 12px;
-  font-size: 2.7rem;
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 3vw, 3rem);
   line-height: 1.05;
   color: #ffffff;
-  text-shadow: 0 18px 30px rgba(0, 0, 0, 0.24);
 }
 
 .transport-hero-copy p {
-  margin: 0;
-  color: #f8fbff;
-  font-size: 1.08rem;
+  margin: 0 0 24px;
+  color: #ffffff;
+  font-size: 1rem;
   max-width: 680px;
-  line-height: 1.8;
-  text-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+  line-height: 1.75;
 }
 
-.transport-hero-visual {
-  position: relative;
-  min-height: 220px;
-  border-radius: 28px;
-  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.35), transparent 35%),
-    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.18), transparent 25%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
-  overflow: hidden;
+.hero-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
 }
 
-.transport-hero-visual::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
-    linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
-  background-size: 35px 35px;
-  opacity: 0.55;
+.hero-feature {
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.hero-feature strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 1rem;
+}
+
+.hero-feature span {
+  color: rgba(248, 251, 255, 0.78);
+  line-height: 1.6;
 }
 
 .transport-header h1 {
@@ -202,6 +204,7 @@
   margin-top: 0;
   font-size: 1.3rem;
   margin-bottom: 18px;
+  color: #0b68ff;
 }
 
 .transport-output-list {
@@ -209,17 +212,45 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 16px;
+  gap: 12px;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 .transport-output-list li {
-  padding: 18px 20px;
-  background: #f8fbff;
-  border-radius: 16px;
-  border: 1px solid rgba(11, 104, 255, 0.12);
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);
+  border-radius: 12px;
+  border-left: 4px solid #0b68ff;
   color: #111827;
-  font-size: 1.05rem;
-  line-height: 1.75;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  word-wrap: break-word;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.transport-output-list li:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(11, 104, 255, 0.1);
+}
+
+.transport-output-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.transport-output-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.transport-output-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.transport-output-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .transport-error {
@@ -239,4 +270,97 @@
   .transport-hero-visual {
     min-height: 180px;
   }
+}
+
+.transport-booking-section {
+  border: 1px solid #e4e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  margin-bottom: 28px;
+}
+
+.transport-booking-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.7rem;
+}
+
+.transport-booking-results {
+  margin-top: 24px;
+}
+
+.booking-card-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.booking-card {
+  padding: 22px;
+  background: #f8fbff;
+  border-radius: 18px;
+  border: 1px solid rgba(11, 104, 255, 0.16);
+}
+
+.booking-card h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+}
+
+.booking-card p {
+  margin: 0 0 10px;
+  color: #334155;
+  line-height: 1.7;
+}
+
+.booking-price {
+  margin-top: 10px;
+  font-weight: 700;
+  color: #0b68ff;
+}
+
+.transport-booking-summary {
+  margin-bottom: 18px;
+  color: #334155;
+  font-size: 0.98rem;
+}
+
+.booking-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.booking-provider,
+.booking-mode {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.booking-route {
+  margin: 0 0 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.booking-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  background: #0b68ff;
+  color: #ffffff;
+  border-radius: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.booking-link:hover {
+  background: #074cd9;
+  transform: translateY(-1px);
 }
